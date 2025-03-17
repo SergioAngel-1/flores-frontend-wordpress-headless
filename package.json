@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "alertifyjs": "^1.14.0",
     "crypto-js": "^4.2.0",
     "oauth-1.0a": "^2.2.6",
     "react": "^19.0.0",
@@ -19,6 +20,7 @@
   "devDependencies": {
     "@eslint/js": "^9.21.0",
     "@types/crypto-js": "^4.2.2",
+    "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react-swc": "^3.8.0",
