@@ -2,11 +2,17 @@ import axios from 'axios';
 import { Product, Category } from '../types/woocommerce';
 import OAuth from 'oauth-1.0a';
 import CryptoJS from 'crypto-js';
+import { showServerErrorAlert } from './alertService';
+
+// Variables para controlar los errores de servidor
+let serverErrorShown = false;
+let lastErrorTime = 0;
+const ERROR_COOLDOWN = 10000; // 10 segundos entre alertas
 
 // Obtener las claves de la API de WooCommerce
 const consumerKey = import.meta.env.VITE_WC_CONSUMER_KEY;
 const consumerSecret = import.meta.env.VITE_WC_CONSUMER_SECRET;
-const apiUrl = '/api'; // Usamos un proxy local para evitar problemas CORS
+const apiUrl = ''; // URL vacía para usar rutas relativas con el proxy de Vite
 
 // Configuración de OAuth 1.0a
 const oauth = new OAuth({
@@ -16,6 +22,7 @@ const oauth = new OAuth({
   },
   signature_method: 'HMAC-SHA1',
   hash_function(base_string, key) {
+    console.log('Datos para OAuth firma:', { base_string, key });
     return CryptoJS.HmacSHA1(base_string, key).toString(CryptoJS.enc.Base64);
   }
 });
@@ -32,7 +39,12 @@ const getAuthHeaders = (url: string, method: string) => {
 
 // Crear instancia de Axios para WooCommerce API
 const wooCommerceApi = axios.create({
-  baseURL: `${apiUrl}/wp-json/wc/v3`,
+  baseURL: `/wp-json/wc/v3`,
+  timeout: 10000, // Timeout global de 10 segundos
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
 });
 
 // Interceptor para añadir los parámetros OAuth a cada solicitud
@@ -41,13 +53,23 @@ wooCommerceApi.interceptors.request.use(config => {
   config.params = config.params || {};
   
   // Construir la URL completa para la firma OAuth
-  const fullUrl = `${apiUrl}/wp-json/wc/v3${config.url || ''}`;
+  const urlObj = new URL(`http://flores.local/wp-json/wc/v3${config.url || ''}`);
   
-  // Preparar los datos para OAuth
+  // Añadir parámetros existentes a la URL
+  Object.entries(config.params).forEach(([key, value]) => {
+    urlObj.searchParams.append(key, value as string);
+  });
+  
+  // Limpiar los parámetros para la firma (usaremos solo la URL)
+  const fullUrl = urlObj.toString();
+  
+  // Obtener el método HTTP en mayúsculas
+  const method = config.method?.toUpperCase() || 'GET';
+  
+  // Crear los datos de la solicitud para OAuth
   const requestData = {
     url: fullUrl,
-    method: config.method?.toUpperCase() || 'GET',
-    data: config.params
+    method
   };
   
   // Obtener los parámetros OAuth
@@ -65,7 +87,7 @@ wooCommerceApi.interceptors.request.use(config => {
   };
   
   console.log('Realizando petición OAuth a:', fullUrl);
-  console.log('Parámetros OAuth:', config.params);
+  console.log('Parámetros OAuth:', oauthData);
   
   return config;
 });
@@ -85,48 +107,13 @@ wooCommerceApi.interceptors.response.use(
         }
       });
       
-      // Si es un error 401, intentar con datos simulados
-      if (error.response.status === 401) {
-        console.log('Devolviendo datos simulados como último recurso');
-        
-        // Determinar qué tipo de datos devolver basado en la URL
-        if (error.config.url.includes('/products/categories')) {
-          return { 
-            data: [
-              {
-                id: 1,
-                name: 'Categoría de ejemplo 1',
-                slug: 'categoria-ejemplo-1',
-                count: 5
-              },
-              {
-                id: 2,
-                name: 'Categoría de ejemplo 2',
-                slug: 'categoria-ejemplo-2',
-                count: 3
-              }
-            ] 
-          };
-        } else {
-          // Para productos u otros endpoints
-          return { 
-            data: [
-              {
-                id: 1,
-                name: 'Producto de ejemplo 1',
-                description: 'Este es un producto de ejemplo para mostrar cuando la API no está disponible.',
-                price: '19.99',
-                images: [{ src: 'https://via.placeholder.com/300x300' }]
-              },
-              {
-                id: 2,
-                name: 'Producto de ejemplo 2',
-                description: 'Este es otro producto de ejemplo para mostrar cuando la API no está disponible.',
-                price: '29.99',
-                images: [{ src: 'https://via.placeholder.com/300x300' }]
-              }
-            ] 
-          };
+      // Mostrar mensaje amigable al usuario en caso de error de servidor
+      if (error.response.status === 502) {
+        const currentTime = new Date().getTime();
+        if (!serverErrorShown || currentTime - lastErrorTime > ERROR_COOLDOWN) {
+          showServerErrorAlert();
+          serverErrorShown = true;
+          lastErrorTime = currentTime;
         }
       }
     } else if (error.request) {
@@ -158,30 +145,39 @@ export const authService = {
   // Iniciar sesión con WordPress
   login: async (identifier: string, password: string): Promise<User> => {
     try {
-      // Para pruebas, simulamos la autenticación con credenciales específicas
-      if (identifier === 'admin' && password === 'admin') {
-        console.log('Autenticación simulada exitosa para:', identifier);
+      // Primero intentamos con JWT
+      try {
+        const jwtResponse = await axios.post(`/jwt-auth/v1/token`, {
+          username: identifier,
+          password
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
         
-        // Simulamos un token JWT
-        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkFkbWluIFVzZXIiLCJpYXQiOjE1MTYyMzkwMjJ9';
-        localStorage.setItem('wpToken', token);
+        console.log('Respuesta de login JWT:', jwtResponse.data);
         
-        // Devolvemos datos simulados del usuario
-        return {
-          id: 1,
-          username: 'admin',
-          email: 'admin@example.com',
-          firstName: 'Admin',
-          lastName: 'User',
-          pending: false
-        };
+        if (jwtResponse.data && jwtResponse.data.token) {
+          // Guardamos el token en localStorage
+          localStorage.setItem('wpToken', jwtResponse.data.token);
+          
+          // Devolvemos los datos del usuario
+          return {
+            id: jwtResponse.data.user_id || 0,
+            username: jwtResponse.data.user_display_name || identifier,
+            email: jwtResponse.data.user_email || '',
+            firstName: jwtResponse.data.user_firstname || '',
+            lastName: jwtResponse.data.user_lastname || '',
+            pending: false
+          };
+        }
+      } catch (jwtError) {
+        console.log('JWT Auth no disponible, intentando método alternativo');
       }
       
-      // Si las credenciales no coinciden, simulamos un error
-      throw new Error('Credenciales incorrectas');
-      
-      /* Código original comentado para pruebas
-      const response = await axios.post(`${apiUrl}/jwt-auth/v1/token`, {
+      // Método alternativo: uso de cookies de autenticación de WordPress
+      const cookieResponse = await axios.post(`/wp-json/api/v1/token`, {
         username: identifier,
         password
       }, {
@@ -190,28 +186,52 @@ export const authService = {
         }
       });
       
-      console.log('Respuesta de login:', response.data);
+      console.log('Respuesta de login alternativo:', cookieResponse.data);
       
-      if (response.data && response.data.token) {
-        // Guardamos el token en localStorage
-        localStorage.setItem('wpToken', response.data.token);
+      if (cookieResponse.data && cookieResponse.data.success) {
+        // Para este método, WordPress debería establecer cookies automáticamente
+        // Guardamos un indicador en localStorage
+        localStorage.setItem('wpLoggedIn', 'true');
         
         // Devolvemos los datos del usuario
         return {
-          id: response.data.user_id || 0,
-          username: response.data.user_display_name || identifier,
-          email: response.data.user_email || '',
-          firstName: response.data.user_firstname || '',
-          lastName: response.data.user_lastname || '',
+          id: cookieResponse.data.user_id || 0,
+          username: cookieResponse.data.user_display_name || identifier,
+          email: cookieResponse.data.user_email || '',
+          firstName: cookieResponse.data.user_first_name || '',
+          lastName: cookieResponse.data.user_last_name || '',
           pending: false
         };
       } else {
-        throw new Error('Error al iniciar sesión');
+        // Por ahora, para permitir el desarrollo, simulamos un inicio de sesión exitoso
+        console.log('Simulando login exitoso para desarrollo');
+        localStorage.setItem('wpLoggedIn', 'true');
+        return {
+          id: 1,
+          username: identifier,
+          email: `${identifier}@example.com`,
+          firstName: 'Usuario',
+          lastName: 'de Prueba',
+          pending: false
+        };
       }
-      */
     } catch (error) {
       console.error('Error en el login:', error);
-      throw error;
+      
+      // Solo para desarrollo, permitir login simulado
+      console.log('Simulando login exitoso para desarrollo a pesar del error');
+      localStorage.setItem('wpLoggedIn', 'true');
+      return {
+        id: 1,
+        username: identifier,
+        email: `${identifier}@example.com`,
+        firstName: 'Usuario',
+        lastName: 'de Prueba',
+        pending: false
+      };
+      
+      // En producción, descomentar esta línea:
+      // throw error;
     }
   },
   
@@ -241,33 +261,38 @@ export const authService = {
     }
   },
   
+  // Comprobar si el usuario está autenticado
+  isAuthenticated: (): boolean => {
+    // Verificar en desarrollo
+    if (localStorage.getItem('wpLoggedIn') === 'true') {
+      return true;
+    }
+    
+    // Verificar token JWT
+    const token = localStorage.getItem('wpToken');
+    return !!token;
+  },
+  
   // Obtener el usuario actual
   getCurrentUser: async (): Promise<User> => {
     try {
-      const token = localStorage.getItem('wpToken');
-      
-      if (!token) {
-        throw new Error('No hay token de autenticación');
+      // En desarrollo, devolver usuario simulado
+      if (localStorage.getItem('wpLoggedIn') === 'true' && !localStorage.getItem('wpToken')) {
+        console.log('Devolviendo usuario simulado');
+        return {
+          id: 1,
+          username: 'usuario_prueba',
+          email: 'usuario@example.com',
+          firstName: 'Usuario',
+          lastName: 'de Prueba',
+          pending: false
+        };
       }
       
-      // Para pruebas, simulamos la obtención del usuario actual
-      console.log('Obteniendo usuario actual con token simulado');
-      
-      // Devolvemos datos simulados del usuario
-      return {
-        id: 1,
-        username: 'admin',
-        email: 'admin@example.com',
-        firstName: 'Admin',
-        lastName: 'User',
-        pending: false
-      };
-      
-      /* Código original comentado para pruebas
-      // Usamos el endpoint /wp/v2/users/me para obtener los datos del usuario actual
-      const response = await axios.get(`${apiUrl}/wp/v2/users/me`, {
+      // Intentar obtener el usuario con token JWT
+      const response = await axios.get(`/wp-json/wp/v2/users/me`, {
         headers: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${localStorage.getItem('wpToken')}`
         }
       });
       
@@ -275,29 +300,36 @@ export const authService = {
       
       return {
         id: response.data.id,
-        username: response.data.name || response.data.username,
-        email: response.data.email || '',
+        username: response.data.username,
+        email: response.data.email,
         firstName: response.data.first_name || '',
         lastName: response.data.last_name || '',
-        pending: false
+        pending: false // Actualizar según la respuesta
       };
-      */
     } catch (error) {
       console.error('Error al obtener usuario actual:', error);
-      localStorage.removeItem('wpToken');
+      
+      // En desarrollo, simular usuario
+      if (localStorage.getItem('wpLoggedIn') === 'true') {
+        return {
+          id: 1,
+          username: 'usuario_prueba',
+          email: 'usuario@example.com',
+          firstName: 'Usuario',
+          lastName: 'de Prueba',
+          pending: false
+        };
+      }
+      
       throw error;
     }
   },
   
   // Cerrar sesión
-  logout() {
+  logout: (): void => {
     localStorage.removeItem('wpToken');
+    localStorage.removeItem('wpLoggedIn');
   },
-  
-  // Verificar si el usuario está autenticado
-  isAuthenticated() {
-    return !!localStorage.getItem('wpToken');
-  }
 };
 
 // Servicio para productos
@@ -316,7 +348,16 @@ export const productService = {
       params: { 
         ...params,
         search: searchTerm 
-      } 
+      },
+      timeout: 15000
+    }).catch(error => {
+      // Si es un error 502, devolver un array vacío para evitar romper la UI
+      if (error.response && error.response.status === 502) {
+        console.log('Error 502 en búsqueda, devolviendo array vacío');
+        return { data: [] };
+      }
+      // Para otros errores, permitir que se propaguen
+      return Promise.reject(error);
     }),
 };
 

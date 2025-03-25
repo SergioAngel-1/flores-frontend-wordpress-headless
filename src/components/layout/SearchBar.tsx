@@ -1,4 +1,4 @@
-import { FC, useState, useRef, useEffect, ChangeEvent } from 'react';
+import { FC, useState, useRef, useEffect, ChangeEvent, KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useSearchProducts } from '../../hooks/useWooCommerce';
 
@@ -17,7 +17,7 @@ const SearchBar: FC<SearchBarProps> = ({
 }) => {
   const [internalShowResults, setInternalShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const { data: searchResults, loading: searchLoading } = useSearchProducts(searchTerm);
+  const { data: searchResults, loading: searchLoading, error } = useSearchProducts(searchTerm);
   
   // Usar el estado externo si está disponible, de lo contrario usar el interno
   const showResults = externalShowResults !== undefined ? externalShowResults : internalShowResults;
@@ -41,111 +41,103 @@ const SearchBar: FC<SearchBarProps> = ({
     setSearchTerm(e.target.value);
   };
 
-  const clearSearch = () => {
-    setSearchTerm('');
-    setShowResults(false);
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Si pulsa Escape, cerrar los resultados
+    if (e.key === 'Escape') {
+      setShowResults(false);
+    }
   };
 
   return (
     <div className="hidden md:block flex-grow max-w-xl mx-4 relative" ref={searchRef}>
-      <input 
-        type="text" 
-        placeholder="Buscar productos..." 
-        className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario focus:border-transparent"
-        value={searchTerm}
-        onChange={handleInputChange}
-        onFocus={() => setShowResults(true)}
-      />
-      
-      {/* Icono de búsqueda */}
-      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+      <div className="relative">
+        <input 
+          type="text" 
+          placeholder="Buscar productos..." 
+          className="w-full px-4 py-2 border border-primario rounded-md focus:outline-none focus:ring-2 focus:ring-primario focus:border-transparent"
+          value={searchTerm}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setShowResults(true)}
+        />
+        
+        {/* Icono de búsqueda */}
+        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-oscuro" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+        
+        {/* Botón para limpiar la búsqueda */}
+        {searchTerm && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setShowResults(false);
+            }}
+            className="absolute inset-y-0 right-8 flex items-center pr-3 text-gray-500 hover:text-oscuro"
+            aria-label="Limpiar búsqueda"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
       
       {/* Resultados de búsqueda */}
-      {(showResults) && searchTerm && (
-        <div className="absolute z-50 mt-1 w-full bg-white rounded-md shadow-lg max-h-96 overflow-y-auto">
-          {searchLoading && (
-            <div className="px-4 py-4 text-sm text-gray-500 text-center">
-              <div className="flex justify-center items-center">
-                <svg className="animate-spin h-5 w-5 text-primario" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span className="ml-2">Buscando...</span>
+      {(showResults) && searchTerm && searchTerm.trim().length >= 2 && (
+        <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-30 max-h-96 overflow-y-auto">
+          {searchLoading ? (
+            <div className="p-4 text-center text-gray-600">
+              <div className="flex justify-center">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primario"></div>
               </div>
+              <p className="mt-2">Buscando productos...</p>
             </div>
-          )}
-          
-          {!searchLoading && searchResults && searchResults.length === 0 && (
-            <div className="px-4 py-4 text-sm text-gray-500 text-center">
-              No se encontraron resultados para "<span className="font-medium">{searchTerm}</span>"
+          ) : searchResults && searchResults.length > 0 ? (
+            <div>
+              <div className="p-2 border-b border-gray-200">
+                <h3 className="font-semibold text-sm text-gray-600">Resultados para "{searchTerm}"</h3>
+              </div>
+              <ul>
+                {searchResults.map(product => (
+                  <li key={product.id} className="border-b border-gray-100 last:border-b-0">
+                    <Link 
+                      to={`/producto/${product.slug}`} 
+                      className="flex items-center p-3 hover:bg-gray-50 transition-colors duration-150"
+                      onClick={() => setShowResults(false)}
+                    >
+                      {product.images && product.images[0] && (
+                        <img 
+                          src={product.images[0].src} 
+                          alt={product.name} 
+                          className="w-12 h-12 object-cover mr-3 rounded-md"
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium text-oscuro">{product.name}</p>
+                        <p className="text-sm text-primario">${product.price}</p>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-          )}
-          
-          {/* Categorías */}
-          {!searchLoading && searchResults && searchResults.length > 0 && (
-            <div className="px-4 py-2 border-b border-gray-200">
-              <h3 className="font-medium text-gray-700 text-sm mb-2">CATEGORÍAS:</h3>
-              {Array.from(new Set(searchResults.map(product => 
-                product.categories && product.categories.length > 0 ? 
-                product.categories[0].name : 'Sin categoría'
-              ))).map(category => (
-                <Link 
-                  key={category} 
-                  to={`/categoria/${category}`}
-                  className="block px-2 py-1 text-sm text-gray-700 hover:bg-gray-100 rounded"
-                  onClick={() => setShowResults(false)}
-                >
-                  {category}
-                </Link>
-              ))}
+          ) : searchResults && searchResults.length === 0 ? (
+            <div className="p-4 text-center text-gray-600">
+              <p>No se encontraron productos para "{searchTerm}"</p>
             </div>
-          )}
-          
-          {/* Productos */}
-          {!searchLoading && searchResults && searchResults.length > 0 && (
-            <div className="px-4 py-2">
-              <h3 className="font-medium text-gray-700 text-sm mb-2">PRODUCTOS:</h3>
-              {searchResults.map(product => (
-                <Link 
-                  key={product.id} 
-                  to={`/producto/${product.slug}`}
-                  className="flex items-center px-2 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
-                  onClick={() => setShowResults(false)}
-                >
-                  <div className="w-10 h-10 flex-shrink-0 mr-2 bg-gray-200 rounded overflow-hidden">
-                    <img 
-                      src={product.images && product.images.length > 0 ? product.images[0].src : 'https://via.placeholder.com/50'} 
-                      alt={product.name} 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{product.name}</p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {product.categories && product.categories.length > 0 ? product.categories[0].name : 'Sin categoría'}
-                    </p>
-                  </div>
-                  <div className="text-green-600 font-medium">${product.price}</div>
-                </Link>
-              ))}
+          ) : error ? (
+            <div className="p-4 text-center text-red-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p>Error al realizar la búsqueda</p>
+              <p className="text-sm mt-1">Por favor, verifica la conexión con el servidor</p>
             </div>
-          )}
-          
-          {!searchLoading && searchResults && searchResults.length > 0 && (
-            <div className="px-4 py-3 bg-gray-50 text-center">
-              <Link 
-                to={`/busqueda?q=${encodeURIComponent(searchTerm)}`}
-                className="text-sm text-primario font-medium hover:underline"
-                onClick={() => setShowResults(false)}
-              >
-                Ver todos los resultados
-              </Link>
-            </div>
-          )}
+          ) : null}
         </div>
       )}
     </div>

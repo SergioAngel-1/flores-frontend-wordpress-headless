@@ -31,7 +31,7 @@ const AddressBar: FC<AddressBarProps> = ({ openProfileModal, openAddressSection 
 
   return (
     <span 
-      className="text-primario text-sm font-bold hidden md:inline-block relative group px-2 pt-0 pb-1 shadow-sm rounded-b-lg overflow-hidden border-b-2 border-l-2 border-r-2 border-primario cursor-pointer"
+      className="text-primario text-sm font-bold hidden md:inline-block relative group px-2 pt-0 pb-1 shadow-sm rounded-b-lg overflow-hidden border-b-2 border-l-2 border-r-2 border-primario cursor-pointer tab-push-effect"
       onClick={handleAddressClick}
     >
       <span className="absolute inset-0 bg-white group-hover:bg-gray-50 transition-colors duration-300 -z-10 rounded-b-lg"></span>

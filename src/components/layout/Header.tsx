@@ -122,9 +122,9 @@ const Header = () => {
             <div className="flex items-center space-x-2">
               <Link 
                 to="/hiperofertas" 
-                className="text-white text-sm font-bold hover:text-white flex items-center relative group px-2 pt-0 pb-1 shadow-sm border-b-2 border-l-2 border-r-2 border-primario rounded-b-lg bg-primario"
+                className="tab-push flex items-center hover:text-white"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 clock-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 Hiperofertas
@@ -139,27 +139,33 @@ const Header = () => {
             
             {/* Enlaces de la derecha */}
             <div className="flex items-center space-x-2">
-              <Link 
-                to="/seguimiento" 
-                className="text-white text-sm font-bold hover:text-white relative group px-2 pt-0 pb-1 shadow-sm border-b-2 border-l-2 border-r-2 border-primario rounded-b-lg bg-primario"
-              >
-                Seguir mi pedido
-              </Link>
+              {isAuthenticated && (
+                <Link
+                  to="/mis-pedidos"
+                  className="tab-push hover:text-white"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    openProfileModal('orders');
+                  }}
+                >
+                  Mis pedidos
+                </Link>
+              )}
               <Link 
                 to="/tiendas" 
-                className="text-white text-sm font-bold hover:text-white hidden md:inline-block relative group px-2 pt-0 pb-1 shadow-sm border-b-2 border-l-2 border-r-2 border-primario rounded-b-lg bg-primario"
+                className="tab-push hidden md:inline-block hover:text-white"
               >
                 Nuestras tiendas
               </Link>
               <Link 
                 to="/catalogo" 
-                className="text-white text-sm font-bold hover:text-white hidden md:inline-block relative group px-2 pt-0 pb-1 shadow-sm border-b-2 border-l-2 border-r-2 border-primario rounded-b-lg bg-primario"
+                className="tab-push hidden md:inline-block hover:text-white"
               >
                 Catálogo
               </Link>
               <Link 
                 to="/ayuda" 
-                className="text-white text-sm font-bold hover:text-white hidden lg:inline-block relative group px-2 pt-0 pb-1 shadow-sm border-b-2 border-l-2 border-r-2 border-primario rounded-b-lg bg-primario"
+                className="tab-push hidden lg:inline-block hover:text-white"
               >
                 Ayuda
               </Link>
@@ -211,7 +217,7 @@ const Header = () => {
       </header>
 
       {/* Menú de navegación principal */}
-      <div className="bg-primario border-b border-gray-200 py-2 hidden md:block px-2">
+      <div className="bg-primario border-b border-gray-200 py-2 hidden md:block">
         <div className="container mx-auto px-2 sm:px-4">
           <MainMenu 
             activeTab={activeTab}

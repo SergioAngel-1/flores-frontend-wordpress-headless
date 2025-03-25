@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import alertService from '../../services/alertService';
+import AnimatedModal from '../ui/AnimatedModal';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -15,8 +16,6 @@ const LoginModal = ({ isOpen, onClose, onRegisterClick }: LoginModalProps) => {
   const [loading, setLoading] = useState(false);
   const { login, error } = useAuth();
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -27,7 +26,12 @@ const LoginModal = ({ isOpen, onClose, onRegisterClick }: LoginModalProps) => {
     
     try {
       setLoading(true);
-      await login(identifier, password);
+      const success = await login(identifier, password);
+      
+      // Solo cerramos el modal si el inicio de sesión fue exitoso
+      if (success) {
+        onClose();
+      }
       // No es necesario mostrar alerta aquí, ya que se maneja en el AuthContext
     } catch (error) {
       // Los errores ya se manejan en el AuthContext
@@ -38,103 +42,103 @@ const LoginModal = ({ isOpen, onClose, onRegisterClick }: LoginModalProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-center mb-6">Iniciar sesión</h2>
+    <AnimatedModal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      className="max-w-md"
+      title="Iniciar sesión"
+    >
+      <div className="p-6">
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+        
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="identifier">
+              Email o nombre de usuario
+            </label>
+            <input
+              id="identifier"
+              type="text"
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-primario"
+              placeholder="Ingresa tu email o nombre de usuario"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              disabled={loading}
+              autoFocus
+            />
+          </div>
           
-          {error && (
-            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
-          )}
-          
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label htmlFor="identifier" className="block text-sm font-medium text-gray-700 mb-1">
-                Usuario, Email o Teléfono
-              </label>
+          <div className="mb-6">
+            <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="password">
+              Contraseña
+            </label>
+            <div className="relative">
               <input
-                id="identifier"
-                type="text"
-                placeholder="Ingrese su usuario, email o teléfono"
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primario"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                required
+                id="password"
+                type={showPassword ? "text" : "password"}
+                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-primario"
+                placeholder="Ingresa tu contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
               />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
+                  </svg>
+                ) : (
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
             </div>
-            
-            <div className="mb-6">
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Contraseña
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Ingrese su contraseña"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primario pr-10"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={loading}
-                >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd" />
-                      <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                      <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-            
+          </div>
+          
+          <div className="flex flex-col space-y-4">
             <button
               type="submit"
-              className="w-full bg-primario hover:bg-primario-dark text-white font-bold py-3 px-4 rounded-lg transition duration-200"
+              className={`bg-primario hover:bg-oscuro text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition-colors duration-300 ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
               disabled={loading}
             >
               {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
             </button>
             
-            <div className="mt-4 text-center">
-              <a href="#" className="text-primario hover:text-primario-dark text-sm">
+            <div className="text-center text-sm">
+              <button
+                type="button"
+                className="text-primario hover:text-oscuro transition-colors duration-300"
+                onClick={() => alertService.info('Funcionalidad pendiente: Recuperar contraseña')}
+              >
                 ¿Olvidaste tu contraseña?
-              </a>
+              </button>
             </div>
-          </form>
-        </div>
-        
-        <div className="border-t border-gray-200 p-6">
-          <p className="text-center mb-4">
-            ¿No tienes una cuenta? <button onClick={onRegisterClick} className="text-primario hover:text-primario-dark" disabled={loading}>Crear cuenta</button>
-          </p>
-          <button
-            onClick={onClose}
-            className="flex items-center justify-center w-full text-gray-600 hover:text-gray-800"
-            disabled={loading}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Volver
-          </button>
-        </div>
+            
+            <div className="text-center">
+              <span className="text-gray-600">¿No tienes cuenta? </span>
+              <button
+                type="button"
+                className="text-primario hover:text-oscuro font-medium transition-colors duration-300"
+                onClick={onRegisterClick}
+              >
+                Regístrate
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
-    </div>
+    </AnimatedModal>
   );
 };
 

@@ -6,10 +6,15 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': {
-        target: 'http://flores.local/wp-json',
+      '/wp-json': {
+        target: 'http://flores.local',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        secure: false
+      },
+      '/jwt-auth': {
+        target: 'http://flores.local',
+        changeOrigin: true,
+        secure: false
       }
     }
   }

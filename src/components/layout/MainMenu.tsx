@@ -8,13 +8,27 @@ interface MainMenuProps {
   categories: Category[];
 }
 
+// Función auxiliar para formatear texto a formato título (primera letra mayúscula, resto minúsculas)
+const formatTitleCase = (text: string): string => {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories }) => {
   return (
     <nav className="flex items-center justify-center w-full">
       <div className="flex items-center space-x-8">
         <Link 
           to="/" 
-          className={`text-sm font-medium ${activeTab === 'inicio' ? 'text' : 'hover:text-primario'}`} 
+          className={`text-sm font-bold px-3 py-2 rounded-md transition-all duration-300 text-white hover:text-primario hover:bg-secundario capitalize tab-push-effect ${
+            activeTab === 'inicio' 
+              ? 'border-b-2 border-white' 
+              : ''
+          }`} 
           onClick={() => setActiveTab('inicio')}
         >
           Inicio
@@ -24,10 +38,14 @@ const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories }) =>
           <div key={category.id} className="relative group">
             <Link 
               to={`/categoria/${category.slug}`}
-              className={`text-sm font-medium flex items-center ${activeTab === category.slug ? 'text-primario' : 'hover:text-primario'}`}
+              className={`text-sm font-bold flex items-center px-3 py-2 rounded-md transition-all duration-300 text-white hover:text-primario hover:bg-secundario capitalize tab-push-effect ${
+                activeTab === category.slug 
+                  ? 'border-b-2 border-white' 
+                  : ''
+              }`}
               onClick={() => setActiveTab(category.slug)}
             >
-              {category.name}
+              {formatTitleCase(category.name)}
               {category.subcategories && category.subcategories.length > 0 && (
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -42,10 +60,10 @@ const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories }) =>
                     <Link 
                       key={subcategory.id} 
                       to={`/categoria/${subcategory.slug}`}
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="block px-4 py-2 text-sm font-bold text-texto hover:bg-secundario hover:text-primario transition-all duration-300 capitalize"
                       role="menuitem"
                     >
-                      {subcategory.name}
+                      {formatTitleCase(subcategory.name)}
                     </Link>
                   ))}
                 </div>
@@ -56,7 +74,11 @@ const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories }) =>
         
         <Link 
           to="/contacto" 
-          className={`text-sm font-medium ${activeTab === 'contacto' ? 'text-primario' : 'hover:text-primario'}`} 
+          className={`text-sm font-bold px-3 py-2 rounded-md transition-all duration-300 text-white hover:text-primario hover:bg-secundario capitalize tab-push-effect ${
+            activeTab === 'contacto' 
+              ? 'border-b-2 border-white' 
+              : ''
+          }`} 
           onClick={() => setActiveTab('contacto')}
         >
           Contacto
