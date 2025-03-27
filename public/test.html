@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Servidor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5e6e8;
+            color: #3a2a2f;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #b91e59;
+        }
+        button {
+            background-color: #b91e59;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #8a1443;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Prueba de Servidor</h1>
+        <p>Si puedes ver esta página, el servidor está funcionando correctamente.</p>
+        <button id="testBtn">Probar JavaScript</button>
+        <p id="result"></p>
+    </div>
+
+    <script>
+        document.getElementById('testBtn').addEventListener('click', function() {
+            document.getElementById('result').textContent = 'JavaScript está funcionando correctamente. ' + new Date().toLocaleString();
+        });
+    </script>
+</body>
+</html>

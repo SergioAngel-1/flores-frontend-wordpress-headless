@@ -154,24 +154,26 @@ export const useCreateOrder = () => {
 // Hook para buscar productos
 export const useSearchProducts = (searchTerm: string) => {
   const [state, setState] = useState<UseWooCommerceState<Product[]>>({
-    data: null,
-    loading: true,
+    data: [],  
+    loading: false,
     error: null,
   });
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      if (!searchTerm || searchTerm.trim() === '') {
-        setState({
-          data: [],
-          loading: false,
-          error: null,
-        });
-        return;
-      }
+    // No realizar búsquedas con términos muy cortos
+    if (!searchTerm || searchTerm.trim().length < 2) {
+      setState({
+        data: [],
+        loading: false,
+        error: null,
+      });
+      return;
+    }
 
+    // Debounce para no hacer peticiones inmediatas
+    const searchDelay = setTimeout(async () => {
       try {
-        setState(prev => ({ ...prev, loading: true }));
+        setState(prev => ({ ...prev, loading: true, error: null }));
         
         const response = await productService.search(searchTerm);
           
@@ -181,15 +183,18 @@ export const useSearchProducts = (searchTerm: string) => {
           error: null,
         });
       } catch (error) {
+        console.error('Error en búsqueda:', error);
+        
+        // Mostrar un array vacío en caso de error, para no romper la UI
         setState({
-          data: null,
+          data: [],
           loading: false,
-          error: error instanceof Error ? error : new Error('Error desconocido al buscar productos'),
+          error: error instanceof Error ? error : new Error('Error al buscar productos'),
         });
       }
-    };
+    }, 500); 
 
-    fetchProducts();
+    return () => clearTimeout(searchDelay);
   }, [searchTerm]);
 
   return state;

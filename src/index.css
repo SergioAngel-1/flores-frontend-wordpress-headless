@@ -67,10 +67,6 @@ button {
 button:hover {
   border-color: var(--primario);
 }
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
 
 @media (prefers-color-scheme: light) {
   :root {
@@ -83,4 +79,105 @@ button:focus-visible {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* Estilo personalizado para scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primario);
+  opacity: 0.6;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--oscuro);
+}
+
+/* Efecto push para elementos interactivos */
+.tab-push-effect:hover {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* Efecto push para iconos del header */
+.icon-push-effect:hover {
+  transform: scale(1.08);
+  transition: transform 0.2s ease;
+}
+
+/* Efecto para pestañas */
+.tab-push {
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 700;
+  position: relative;
+  padding: 0 0.5rem 0.25rem 0.5rem;
+  padding-top: 0;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border-bottom-width: 2px;
+  border-left-width: 2px;
+  border-right-width: 2px;
+  border-color: var(--primario);
+  border-bottom-left-radius: 0.5rem;
+  border-bottom-right-radius: 0.5rem;
+  background-color: var(--primario);
+  transition: all 150ms ease;
+  overflow: hidden;
+  cursor: pointer;
+  border-top: none;
+  outline: none;
+}
+
+.tab-push:hover,
+.tab-push:focus,
+.tab-push:active {
+  transform: scale(1.05);
+  color: white !important;
+  text-decoration: none;
+  outline: none;
+}
+
+/* Animación para el icono de reloj */
+.clock-icon {
+  transition: transform 300ms ease;
+}
+
+.tab-push:hover .clock-icon {
+  transform: rotate(15deg) scale(1.2);
+}
+
+/* Variables CSS para alertify */
+:root {
+  --success-color: var(--primario);
+  --error-color: #dc3545;
+  --warning-color: #ffc107;
+  --info-color: var(--secundario);
+}
+
+/* Asegurar que las transiciones funcionen correctamente */
+.transition-all,
+.transition-opacity,
+.transition-transform,
+.transition-colors {
+  will-change: transform, opacity;
+}
+
+/* Mejora de rendimiento para elementos con transición */
+.translate-y-0,
+.scale-100,
+.opacity-100,
+.opacity-0 {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
 }
