@@ -8,6 +8,8 @@ import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
 import SearchPage from './pages/SearchPage'
 import LandingPage from './pages/LandingPage'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import TermsConditionsPage from './pages/TermsConditionsPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AuthModals from './components/auth/AuthModals'
 import './index.css'
@@ -38,6 +40,8 @@ function AppContent() {
             <Route path="/carrito" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/busqueda" element={<SearchPage />} />
+            <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+            <Route path="/terminos" element={<TermsConditionsPage />} />
             <Route path="/login" element={<Navigate to="/" />} />
             <Route path="*" element={
               <div className="container mx-auto px-4 py-20 text-center">
@@ -50,6 +54,8 @@ function AppContent() {
       ) : (
         <Routes>
           <Route path="/login" element={<LandingPage />} />
+          <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+          <Route path="/terminos" element={<TermsConditionsPage />} />
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       )}

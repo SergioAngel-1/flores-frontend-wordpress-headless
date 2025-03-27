@@ -1,18 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import alertService from '../../../services/alertService';
 
 const ProfileSection = () => {
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    documentId: user?.documentId || '',
     birthDate: user?.birthDate || '',
     gender: user?.gender || '',
-    newsletter: user?.newsletter || false
+    newsletter: user?.newsletter || false,
+    isAdult: true // Nueva propiedad para controlar si es mayor de edad
   });
   const [isEditing, setIsEditing] = useState(false);
 
@@ -24,12 +24,59 @@ const ProfileSection = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Verificar la edad cuando cambia la fecha de nacimiento
+  useEffect(() => {
+    if (formData.birthDate) {
+      const birthDate = new Date(formData.birthDate);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        isAdult: age >= 18
+      }));
+    }
+  }, [formData.birthDate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Aquí iría la lógica para actualizar el perfil
-    // Por ahora solo mostraremos una alerta
-    alertService.success('Perfil actualizado correctamente');
-    setIsEditing(false);
+    
+    try {
+      // Verificar si es menor de edad
+      if (!formData.isAdult) {
+        // Mostrar advertencia
+        alertService.confirm(
+          'Has indicado que eres menor de 18 años. Tu cuenta será desactivada ya que nuestro servicio es solo para mayores de edad. ¿Deseas continuar?',
+          async () => {
+            // Actualizar perfil con estado inactivo
+            await updateProfile({
+              ...formData,
+              active: false
+            });
+            alertService.warning('Tu cuenta ha sido desactivada por ser menor de edad.');
+            setIsEditing(false);
+          },
+          () => {
+            // El usuario canceló, no hacer nada
+          }
+        );
+      } else {
+        // Usuario mayor de edad, actualizar perfil normalmente
+        await updateProfile({
+          ...formData,
+          active: true
+        });
+        alertService.success('Perfil actualizado correctamente');
+        setIsEditing(false);
+      }
+    } catch (error: any) {
+      alertService.error(error.message || 'Error al actualizar el perfil');
+    }
   };
 
   return (
@@ -109,33 +156,23 @@ const ProfileSection = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Cédula de ciudadanía
-            </label>
-            {isEditing ? (
-              <input
-                type="text"
-                name="documentId"
-                value={formData.documentId}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primario focus:border-primario"
-              />
-            ) : (
-              <p className="text-gray-900">{formData.documentId || 'No especificado'}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
               Fecha de nacimiento
             </label>
             {isEditing ? (
-              <input
-                type="date"
-                name="birthDate"
-                value={formData.birthDate}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primario focus:border-primario"
-              />
+              <div>
+                <input
+                  type="date"
+                  name="birthDate"
+                  value={formData.birthDate}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primario focus:border-primario"
+                />
+                {!formData.isAdult && formData.birthDate && (
+                  <p className="text-red-500 text-xs mt-1">
+                    Debes ser mayor de 18 años para utilizar nuestro servicio.
+                  </p>
+                )}
+              </div>
             ) : (
               <p className="text-gray-900">{formData.birthDate || 'No especificado'}</p>
             )}
@@ -193,14 +230,16 @@ const ProfileSection = () => {
                 type="button"
                 onClick={() => setIsEditing(false)}
                 className="mr-3 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                style={{ backgroundColor: 'white', borderColor: '#e5e7eb' }}
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover"
+                style={{ borderColor: 'transparent' }}
               >
-                Guardar cambios
+                Guardar
               </button>
             </>
           ) : (
@@ -208,8 +247,9 @@ const ProfileSection = () => {
               type="button"
               onClick={() => setIsEditing(true)}
               className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover"
+              style={{ borderColor: 'transparent' }}
             >
-              Editar
+              Editar perfil
             </button>
           )}
         </div>

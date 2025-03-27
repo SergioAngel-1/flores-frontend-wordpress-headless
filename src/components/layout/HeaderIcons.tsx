@@ -1,26 +1,27 @@
 import { FC } from 'react';
-import { Link } from 'react-router-dom';
 import alertService from '../../services/alertService';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface HeaderIconsProps {
   cartItemCount: number;
   openProfileModal: () => void;
+  openCartModal: () => void;
   isAuthenticated?: boolean;
 }
 
-const HeaderIcons: FC<HeaderIconsProps> = ({ cartItemCount, openProfileModal, isAuthenticated: propsIsAuthenticated }) => {
+const HeaderIcons: FC<HeaderIconsProps> = ({ cartItemCount, openProfileModal, openCartModal, isAuthenticated: propsIsAuthenticated }) => {
   const { isAuthenticated: contextIsAuthenticated, isPending, setShowLoginModal } = useAuth();
   
   // Usar la prop si se proporciona, de lo contrario usar el contexto
   const isAuthenticated = propsIsAuthenticated !== undefined ? propsIsAuthenticated : contextIsAuthenticated;
 
-  const handleCartClick = () => {
+  const handleCartClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevenir la navegación a /carrito
+    
     if (cartItemCount === 0) {
       alertService.info('Tu carrito está vacío');
     } else {
-      // Lógica para abrir el carrito o redirigir a la página del carrito
-      console.log('Abrir carrito');
+      openCartModal();
     }
   };
 
@@ -54,8 +55,7 @@ const HeaderIcons: FC<HeaderIconsProps> = ({ cartItemCount, openProfileModal, is
       </button>
       
       {/* Icono de carrito */}
-      <Link 
-        to="/carrito" 
+      <button 
         className="flex flex-col items-center text-primario transition-colors duration-300 relative py-2 px-3 rounded-md icon-push-effect"
         onClick={handleCartClick}
         aria-label="Carrito de compras"
@@ -69,7 +69,7 @@ const HeaderIcons: FC<HeaderIconsProps> = ({ cartItemCount, openProfileModal, is
             {cartItemCount > 9 ? '9+' : cartItemCount}
           </span>
         )}
-      </Link>
+      </button>
     </div>
   );
 };

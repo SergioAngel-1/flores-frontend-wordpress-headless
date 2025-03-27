@@ -6,7 +6,7 @@ interface AnimatedModalProps {
   onClose: () => void;
   children: React.ReactNode;
   className?: string;
-  title?: string;
+  title?: React.ReactNode;
   hideCloseButton?: boolean;
 }
 
@@ -35,7 +35,6 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
       });
     } else if (isAnimating) {
       setIsVisible(false);
-      document.body.style.overflow = '';
       
       // Limpiar cualquier timeout anterior
       if (animationTimeoutRef.current) {
@@ -45,6 +44,8 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
       // Esperar a que termine la animación de salida
       animationTimeoutRef.current = setTimeout(() => {
         setIsAnimating(false);
+        // Restaurar el overflow solo después de que termine la animación
+        document.body.style.overflow = '';
       }, 350); // Un poco más de tiempo que la duración de la transición
     }
     
@@ -52,6 +53,8 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
       if (animationTimeoutRef.current) {
         clearTimeout(animationTimeoutRef.current);
       }
+      // Asegurarse de restaurar el overflow si el componente se desmonta
+      document.body.style.overflow = '';
     };
   }, [isOpen, isAnimating]);
 

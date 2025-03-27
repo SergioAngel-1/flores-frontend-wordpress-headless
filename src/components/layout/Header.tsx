@@ -5,15 +5,23 @@ import { gsap } from 'gsap';
 import { cartService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import ProfileModal from '../profile/ProfileModal';
+import HiperofertasModal from '../products/HiperofertasModal';
+import HelpModal from '../help/HelpModal';
+import CartModal from '../cart/CartModal';
 import menuCategories from '../../data/menuCategories';
 import MobileMenu from './MobileMenu';
 import MainMenu from './MainMenu';
 import SearchBar from './SearchBar';
 import HeaderIcons from './HeaderIcons';
+import { IoMdFlash } from 'react-icons/io';
 import AddressBar from './AddressBar';
 
 const Header = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isHiperofertasModalOpen, setIsHiperofertasModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+  const [helpModalInitialTab, setHelpModalInitialTab] = useState<'help' | 'howToOrder'>('help');
   const [activeTab, setActiveTab] = useState('inicio');
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
@@ -43,6 +51,34 @@ const Header = () => {
     openProfileModal('addresses');
   };
 
+  // Abrir/cerrar modal de hiperofertas
+  const openHiperofertasModal = () => {
+    setIsHiperofertasModalOpen(true);
+  };
+
+  const closeHiperofertasModal = () => {
+    setIsHiperofertasModalOpen(false);
+  };
+
+  // Abrir/cerrar modal de ayuda
+  const openHelpModal = (tab: 'help' | 'howToOrder' = 'help') => {
+    setHelpModalInitialTab(tab);
+    setIsHelpModalOpen(true);
+  };
+
+  const closeHelpModal = () => {
+    setIsHelpModalOpen(false);
+  };
+
+  // Abrir/cerrar modal de carrito
+  const openCartModal = () => {
+    setIsCartModalOpen(true);
+  };
+
+  const closeCartModal = () => {
+    setIsCartModalOpen(false);
+  };
+
   // Actualizar contador de carrito
   useEffect(() => {
     const updateCartCount = async () => {
@@ -54,12 +90,19 @@ const Header = () => {
       }
     };
 
+    // Actualizar al montar el componente
     updateCartCount();
     
-    // Actualizar cada 30 segundos
+    // Escuchar eventos de actualización del carrito
+    window.addEventListener('cart-updated', updateCartCount);
+    
+    // Actualizar cada 30 segundos como respaldo
     const interval = setInterval(updateCartCount, 30000);
     
-    return () => clearInterval(interval);
+    return () => {
+      window.removeEventListener('cart-updated', updateCartCount);
+      clearInterval(interval);
+    };
   }, []);
 
   // Efecto para manejar el scroll
@@ -117,16 +160,18 @@ const Header = () => {
     <>
       {/* Top Bar con información de contacto y ofertas */}
       <div className="bg-white text-primario pb-2">
-        <div className="container mx-auto px-2 sm:px-4">
+        <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <Link 
-                to="/hiperofertas" 
+                to="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openHiperofertasModal();
+                }}
                 className="tab-push flex items-center hover:text-white"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 clock-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <IoMdFlash className="h-4 w-4 mr-1 text-yellow-500" />
                 Hiperofertas
               </Link>
               
@@ -152,20 +197,28 @@ const Header = () => {
                 </Link>
               )}
               <Link 
-                to="/tiendas" 
+                to="/referidos" 
                 className="tab-push hidden md:inline-block hover:text-white"
               >
-                Nuestras tiendas
+                Referidos
               </Link>
               <Link 
-                to="/catalogo" 
+                to="#" 
                 className="tab-push hidden md:inline-block hover:text-white"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openHelpModal('howToOrder');
+                }}
               >
-                Catálogo
+                ¿Cómo pedir?
               </Link>
               <Link 
-                to="/ayuda" 
+                to="#" 
                 className="tab-push hidden lg:inline-block hover:text-white"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openHelpModal('help');
+                }}
               >
                 Ayuda
               </Link>
@@ -174,9 +227,14 @@ const Header = () => {
         </div>
       </div>
 
-      {/* Header principal */}
-      <header className={`w-full z-50 transition-all duration-300 font-poppins bg-white py-3 ${isScrolled ? 'shadow-md' : ''}`}>
-        <div className="container mx-auto px-2 sm:px-4">
+      {/* Contenedor para el espacio del header cuando está fijo */}
+      <div className={`w-full ${isScrolled ? 'h-16 md:h-20' : 'h-0'}`}></div>
+
+      {/* Header principal - fixed cuando se hace scroll */}
+      <header className={`w-full transition-all duration-300 font-poppins py-3 bg-white z-40 ${
+        isScrolled ? 'fixed top-0 left-0 right-0 shadow-lg z-50' : 'relative'
+      }`}>
+        <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
           <div className="flex justify-between items-center">
             {/* Logo */}
             <div className="flex items-center">
@@ -186,7 +244,7 @@ const Header = () => {
             </div>
 
             {/* Barra de búsqueda */}
-            <div className="hidden md:block flex-grow max-w-xl mx-4 relative" ref={searchRef}>
+            <div className="hidden md:block flex-grow max-w-xl lg:max-w-2xl xl:max-w-3xl mx-4 relative" ref={searchRef}>
               <SearchBar 
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
@@ -211,14 +269,17 @@ const Header = () => {
               cartItemCount={cartItemCount}
               isAuthenticated={isAuthenticated}
               openProfileModal={openProfileModal}
+              openCartModal={openCartModal}
             />
           </div>
         </div>
       </header>
 
       {/* Menú de navegación principal */}
-      <div className="bg-primario border-b border-gray-200 py-2 hidden md:block">
-        <div className="container mx-auto px-2 sm:px-4">
+      <div className={`bg-primario border-b border-gray-200 py-2 hidden md:block transition-all duration-300 z-30 ${
+        isScrolled ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'
+      }`}>
+        <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
           <MainMenu 
             activeTab={activeTab}
             setActiveTab={setActiveTab}
@@ -236,12 +297,34 @@ const Header = () => {
         categories={menuCategories}
       />
 
-      {/* Modal de perfil */}
+      {/* Modales */}
       {isProfileModalOpen && (
-        <ProfileModal
-          isOpen={isProfileModalOpen}
-          onClose={closeProfileModal}
+        <ProfileModal 
+          isOpen={isProfileModalOpen} 
+          onClose={closeProfileModal} 
           activeSection={activeProfileSection}
+        />
+      )}
+      
+      {isHiperofertasModalOpen && (
+        <HiperofertasModal 
+          isOpen={isHiperofertasModalOpen} 
+          onClose={closeHiperofertasModal} 
+        />
+      )}
+
+      {isHelpModalOpen && (
+        <HelpModal
+          isOpen={isHelpModalOpen}
+          onClose={closeHelpModal}
+          initialTab={helpModalInitialTab}
+        />
+      )}
+
+      {isCartModalOpen && (
+        <CartModal 
+          isOpen={isCartModalOpen} 
+          onClose={closeCartModal} 
         />
       )}
     </>

@@ -17,7 +17,7 @@ const SearchBar: FC<SearchBarProps> = ({
 }) => {
   const [internalShowResults, setInternalShowResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
-  const { data: searchResults, loading: searchLoading, error } = useSearchProducts(searchTerm);
+  const { data: searchResults, loading: searchLoading } = useSearchProducts(searchTerm);
   
   // Usar el estado externo si está disponible, de lo contrario usar el interno
   const showResults = externalShowResults !== undefined ? externalShowResults : internalShowResults;
@@ -49,7 +49,7 @@ const SearchBar: FC<SearchBarProps> = ({
   };
 
   return (
-    <div className="hidden md:block flex-grow max-w-xl mx-4 relative" ref={searchRef}>
+    <div className="w-full relative" ref={searchRef}>
       <div className="relative">
         <input 
           type="text" 
@@ -88,7 +88,7 @@ const SearchBar: FC<SearchBarProps> = ({
       
       {/* Resultados de búsqueda */}
       {(showResults) && searchTerm && searchTerm.trim().length >= 2 && (
-        <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-30 max-h-96 overflow-y-auto">
+        <div className="absolute mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto">
           {searchLoading ? (
             <div className="p-4 text-center text-gray-600">
               <div className="flex justify-center">
@@ -99,10 +99,10 @@ const SearchBar: FC<SearchBarProps> = ({
           ) : searchResults && searchResults.length > 0 ? (
             <div>
               <div className="p-2 border-b border-gray-200">
-                <h3 className="font-semibold text-sm text-gray-600">Resultados para "{searchTerm}"</h3>
+                <p className="text-sm text-gray-600">Resultados para "{searchTerm}"</p>
               </div>
               <ul>
-                {searchResults.map(product => (
+                {searchResults.map((product) => (
                   <li key={product.id} className="border-b border-gray-100 last:border-b-0">
                     <Link 
                       to={`/producto/${product.slug}`} 
@@ -113,31 +113,38 @@ const SearchBar: FC<SearchBarProps> = ({
                         <img 
                           src={product.images[0].src} 
                           alt={product.name} 
-                          className="w-12 h-12 object-cover mr-3 rounded-md"
+                          className="w-12 h-12 object-cover rounded-md mr-3" 
                         />
                       )}
-                      <div>
-                        <p className="font-medium text-oscuro">{product.name}</p>
-                        <p className="text-sm text-primario">${product.price}</p>
+                      <div className="flex-grow">
+                        <h4 className="text-sm font-medium text-gray-900">{product.name}</h4>
+                        <p className="text-sm text-gray-600">
+                          {product.price_html ? (
+                            <span dangerouslySetInnerHTML={{ __html: product.price_html }} />
+                          ) : (
+                            `$${parseFloat(product.price).toLocaleString('es-CO')}`
+                          )}
+                        </p>
                       </div>
                     </Link>
                   </li>
                 ))}
               </ul>
+              <div className="p-2 border-t border-gray-200">
+                <Link 
+                  to={`/buscar?q=${encodeURIComponent(searchTerm)}`}
+                  className="block w-full text-center text-primario hover:text-primario-dark text-sm font-medium py-1"
+                  onClick={() => setShowResults(false)}
+                >
+                  Ver todos los resultados
+                </Link>
+              </div>
             </div>
-          ) : searchResults && searchResults.length === 0 ? (
+          ) : (
             <div className="p-4 text-center text-gray-600">
               <p>No se encontraron productos para "{searchTerm}"</p>
             </div>
-          ) : error ? (
-            <div className="p-4 text-center text-red-600">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p>Error al realizar la búsqueda</p>
-              <p className="text-sm mt-1">Por favor, verifica la conexión con el servidor</p>
-            </div>
-          ) : null}
+          )}
         </div>
       )}
     </div>

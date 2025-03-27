@@ -5,8 +5,13 @@ import './index.css'
 import 'alertifyjs/build/css/alertify.css'
 import 'alertifyjs/build/css/themes/default.css'
 
+// Desactivar el modo estricto en producción para evitar doble renderizado
+const StrictModeWrapper = import.meta.env.DEV 
+  ? React.StrictMode 
+  : React.Fragment;
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+  <StrictModeWrapper>
     <App />
-  </React.StrictMode>,
+  </StrictModeWrapper>
 )

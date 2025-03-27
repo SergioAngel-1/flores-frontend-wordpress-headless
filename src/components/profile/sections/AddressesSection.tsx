@@ -1,46 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import alertService from '../../../services/alertService';
-
-// Tipo para las direcciones
-interface Address {
-  id: number;
-  name: string;
-  address: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
-  phone: string;
-  isDefault: boolean;
-}
+import { useAuth, Address } from '../../../contexts/AuthContext';
 
 const AddressesSection = () => {
-  // Direcciones de ejemplo
-  const [addresses, setAddresses] = useState<Address[]>([
-    {
-      id: 1,
-      name: 'Casa',
-      address: 'Calle 123 #45-67',
-      city: 'Bogotá',
-      state: 'Cundinamarca',
-      postalCode: '110111',
-      country: 'Colombia',
-      phone: '3194417983',
-      isDefault: true
-    },
-    {
-      id: 2,
-      name: 'Oficina',
-      address: 'Carrera 7 #71-21, Oficina 701',
-      city: 'Bogotá',
-      state: 'Cundinamarca',
-      postalCode: '110231',
-      country: 'Colombia',
-      phone: '3194417983',
-      isDefault: false
-    }
-  ]);
-
+  const { user, saveAddress, deleteAddress, setDefaultAddress } = useAuth();
+  const [addresses, setAddresses] = useState<Address[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<number | null>(null);
   const [formData, setFormData] = useState<Omit<Address, 'id' | 'isDefault'>>({
@@ -53,6 +17,13 @@ const AddressesSection = () => {
     phone: ''
   });
 
+  // Cargar direcciones del usuario
+  useEffect(() => {
+    if (user && user.addresses) {
+      setAddresses(user.addresses);
+    }
+  }, [user]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData({
@@ -61,29 +32,37 @@ const AddressesSection = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (editingAddressId !== null) {
-      // Actualizar dirección existente
-      setAddresses(addresses.map(addr => 
-        addr.id === editingAddressId 
-          ? { ...addr, ...formData } 
-          : addr
-      ));
-      alertService.success('Dirección actualizada correctamente');
-    } else {
-      // Agregar nueva dirección
-      const newAddress: Address = {
-        id: Date.now(),
-        ...formData,
-        isDefault: addresses.length === 0
+    try {
+      // Verificar límite de direcciones
+      if (!editingAddressId && addresses.length >= 3) {
+        alertService.error('Has alcanzado el límite máximo de 3 direcciones');
+        return;
+      }
+      
+      const addressData: Partial<Address> = {
+        ...formData
       };
-      setAddresses([...addresses, newAddress]);
-      alertService.success('Dirección agregada correctamente');
+      
+      // Si estamos editando, incluir el ID
+      if (editingAddressId !== null) {
+        addressData.id = editingAddressId;
+      }
+      
+      await saveAddress(addressData);
+      
+      if (editingAddressId !== null) {
+        alertService.success('Dirección actualizada correctamente');
+      } else {
+        alertService.success('Dirección agregada correctamente');
+      }
+      
+      resetForm();
+    } catch (error: any) {
+      alertService.error(error.message || 'Error al guardar la dirección');
     }
-    
-    resetForm();
   };
 
   const resetForm = () => {
@@ -114,38 +93,53 @@ const AddressesSection = () => {
     setShowAddForm(true);
   };
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     alertService.confirm(
       '¿Estás seguro de que deseas eliminar esta dirección?',
-      () => {
-        setAddresses(addresses.filter(addr => addr.id !== id));
-        alertService.success('Dirección eliminada correctamente');
+      async () => {
+        try {
+          await deleteAddress(id);
+          alertService.success('Dirección eliminada correctamente');
+        } catch (error: any) {
+          alertService.error(error.message || 'Error al eliminar la dirección');
+        }
       }
     );
   };
 
-  const setAsDefault = (id: number) => {
-    setAddresses(addresses.map(addr => ({
-      ...addr,
-      isDefault: addr.id === id
-    })));
-    alertService.success('Dirección establecida como predeterminada');
+  const handleSetDefault = async (id: number) => {
+    try {
+      await setDefaultAddress(id);
+      alertService.success('Dirección establecida como predeterminada');
+    } catch (error: any) {
+      alertService.error(error.message || 'Error al establecer la dirección predeterminada');
+    }
   };
 
   return (
     <div>
       <div className="mb-6 flex justify-between items-center">
         <h4 className="text-lg font-medium text-gray-700">Mis direcciones</h4>
-        {!showAddForm && (
+        {!showAddForm && addresses.length < 3 && (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
             className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover"
+            style={{ borderColor: 'transparent' }}
           >
             Agregar dirección
           </button>
         )}
       </div>
+
+      {/* Mensaje de límite de direcciones */}
+      {addresses.length >= 3 && !showAddForm && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-sm text-yellow-700">
+            Has alcanzado el límite máximo de 3 direcciones. Para agregar una nueva, debes eliminar alguna existente.
+          </p>
+        </div>
+      )}
 
       {showAddForm ? (
         <div className="bg-gray-50 p-4 rounded-md mb-6">
@@ -263,77 +257,118 @@ const AddressesSection = () => {
                 type="button"
                 onClick={resetForm}
                 className="mr-3 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                style={{ backgroundColor: 'white', borderColor: '#e5e7eb' }}
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover"
+                style={{ borderColor: 'transparent' }}
               >
                 {editingAddressId !== null ? 'Actualizar' : 'Guardar'}
               </button>
             </div>
           </form>
         </div>
-      ) : null}
-
-      {addresses.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-500">No tienes direcciones guardadas.</p>
-        </div>
       ) : (
         <div className="space-y-4">
-          {addresses.map(address => (
-            <div 
-              key={address.id} 
-              className={`border rounded-md p-4 ${address.isDefault ? 'border-primario bg-secundario/10' : 'border-gray-200'}`}
-            >
-              <div className="flex justify-between items-start">
+          {addresses.length === 0 ? (
+            <div className="text-center py-8 bg-gray-50 rounded-md">
+              <p className="text-gray-500">No tienes direcciones guardadas</p>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="mt-2 text-primario hover:text-hover"
+                style={{ border: 'none', backgroundColor: 'transparent', padding: '0.5em 1em' }}
+              >
+                Agregar tu primera dirección
+              </button>
+            </div>
+          ) : (
+            addresses.map((address) => (
+              <div
+                key={address.id}
+                className={`border ${
+                  address.isDefault ? 'border-primario' : 'border-gray-200'
+                } rounded-md p-4 relative`}
+              >
+                {address.isDefault && (
+                  <span className="absolute top-2 right-2 bg-primario text-white text-xs px-2 py-1 rounded-full">
+                    Predeterminada
+                  </span>
+                )}
                 <div>
                   <h5 className="font-medium text-gray-900">{address.name}</h5>
-                  {address.isDefault && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario text-white mt-1">
-                      Predeterminada
-                    </span>
-                  )}
+                  <p className="text-gray-600 mt-1">{address.address}</p>
+                  <p className="text-gray-600">
+                    {address.city}, {address.state} {address.postalCode}
+                  </p>
+                  <p className="text-gray-600">{address.country}</p>
+                  <p className="text-gray-600 mt-1">Tel: {address.phone}</p>
                 </div>
-                <div className="flex space-x-2">
+                
+                {/* Botones de acción */}
+                <div className="flex justify-end mt-4 space-x-2">
+                  {!address.isDefault && (
+                    <button
+                      onClick={() => handleSetDefault(address.id)}
+                      className="px-3 py-1 text-xs border border-blue-600 text-blue-600 rounded-md transition-colors duration-200"
+                      style={{ 
+                        backgroundColor: 'white', 
+                        borderColor: 'rgb(37, 99, 235)'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgb(37, 99, 235)';
+                        e.currentTarget.style.color = 'white';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                        e.currentTarget.style.color = 'rgb(37, 99, 235)';
+                      }}
+                    >
+                      Predeterminada
+                    </button>
+                  )}
                   <button
                     onClick={() => handleEdit(address)}
-                    className="text-gray-500 hover:text-primario"
+                    className="px-3 py-1 text-xs border border-blue-600 text-blue-600 rounded-md transition-colors duration-200"
+                    style={{ 
+                      backgroundColor: 'white', 
+                      borderColor: 'rgb(37, 99, 235)'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgb(37, 99, 235)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = 'white';
+                      e.currentTarget.style.color = 'rgb(37, 99, 235)';
+                    }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
+                    Editar
                   </button>
                   <button
                     onClick={() => handleDelete(address.id)}
-                    className="text-gray-500 hover:text-red-600"
+                    className="px-3 py-1 text-xs border border-red-600 text-red-600 rounded-md transition-colors duration-200"
+                    style={{ 
+                      backgroundColor: 'white', 
+                      borderColor: 'rgb(220, 38, 38)'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgb(220, 38, 38)';
+                      e.currentTarget.style.color = 'white';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = 'white';
+                      e.currentTarget.style.color = 'rgb(220, 38, 38)';
+                    }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    Eliminar
                   </button>
                 </div>
               </div>
-              <div className="mt-2 text-sm text-gray-700">
-                <p>{address.address}</p>
-                <p>{address.city}, {address.state}, {address.postalCode}</p>
-                <p>{address.country}</p>
-                <p className="mt-1">Tel: {address.phone}</p>
-              </div>
-              {!address.isDefault && (
-                <div className="mt-3">
-                  <button
-                    onClick={() => setAsDefault(address.id)}
-                    className="text-sm text-primario hover:text-hover"
-                  >
-                    Establecer como predeterminada
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       )}
     </div>

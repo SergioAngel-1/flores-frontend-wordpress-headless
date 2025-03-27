@@ -7,26 +7,31 @@ interface AddressBarProps {
 }
 
 const AddressBar: FC<AddressBarProps> = ({ openProfileModal, openAddressSection }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
-  // Dirección de ejemplo - en producción vendría del perfil del usuario
-  const defaultAddress = {
-    street: 'Calle 123 #45-67',
-    city: 'Bogotá',
-    neighborhood: 'Chapinero'
-  };
+  // Obtener la dirección predeterminada del usuario
+  const defaultAddress = user?.defaultAddress;
 
   const handleAddressClick = () => {
     if (isAuthenticated) {
-      openProfileModal();
       // Si existe la función para abrir la sección de direcciones, la llamamos
       if (openAddressSection) {
         openAddressSection();
+      } else {
+        openProfileModal();
       }
     } else {
       // Aquí podríamos abrir el modal de login
-      console.log('Abrir modal de login');
+      openProfileModal();
     }
+  };
+
+  // Formatear la dirección para mostrar
+  const getFormattedAddress = () => {
+    if (defaultAddress) {
+      return `${defaultAddress.name} | ${defaultAddress.city}`;
+    }
+    return 'Seleccionar dirección';
   };
 
   return (
@@ -40,7 +45,7 @@ const AddressBar: FC<AddressBarProps> = ({ openProfileModal, openAddressSection 
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
       <span className="font-bold">
-        {defaultAddress.neighborhood}, {defaultAddress.city}
+        {getFormattedAddress()}
       </span>
       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 inline ml-1 text-primario" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

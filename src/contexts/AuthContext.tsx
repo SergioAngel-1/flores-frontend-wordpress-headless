@@ -1,72 +1,119 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '../services/apiConfig';
-import authService from '../services/authService';
-import alertService from '../services/alertService';
+import axios from 'axios';
+
+// Tipo para las direcciones
+export interface Address {
+  id: number;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  isDefault: boolean;
+}
+
+// Tipo para el usuario
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  avatar?: string;
+  addresses: Address[];
+  defaultAddress: Address | null;
+  pending: boolean;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  birthDate?: string;
+  gender?: string;
+  newsletter?: boolean;
+  active?: boolean;
+}
 
 interface AuthContextType {
-  user: User | null;
   isAuthenticated: boolean;
+  user: User | null;
   login: (identifier: string, password: string) => Promise<boolean>;
-  register: (username: string, email: string, password: string, phone?: string) => Promise<void>;
   logout: () => void;
+  register: (username: string, email: string, password: string, phone?: string) => Promise<void>;
+  loading: boolean;
+  error: string | null;
+  saveAddress: (address: Partial<Address>) => Promise<Address>;
+  deleteAddress: (addressId: number) => Promise<void>;
+  setDefaultAddress: (addressId: number) => Promise<void>;
+  updateProfile: (profileData: Partial<User>) => Promise<void>;
+  isPending: boolean;
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
   showRegisterModal: boolean;
   setShowRegisterModal: (show: boolean) => void;
-  loading: boolean;
-  error: string | null;
-  isPending: boolean; // Indica si el usuario actual está pendiente de aprobación
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
   return context;
 };
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Iniciar como true para mostrar carga mientras verifica
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [isPending, setIsPending] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Comprobar si hay un usuario autenticado al cargar
+  // Verificar si el usuario está autenticado al cargar la aplicación
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        if (authService.isAuthenticated()) {
-          try {
-            const userData = await authService.getCurrentUser();
-            setUser(userData);
-            setIsPending(!!userData.pending);
+        setLoading(true);
+        const token = localStorage.getItem('authToken');
+        
+        if (token) {
+          // Configurar el token en los headers para todas las solicitudes
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          
+          // Obtener datos del usuario
+          const response = await axios.get(`${import.meta.env.VITE_WP_API_URL}/wp-json/wp/v2/users/me`);
+          
+          if (response.data) {
+            setUser({
+              id: response.data.id,
+              name: response.data.name,
+              email: response.data.email,
+              avatar: response.data.avatar_urls?.['96'] || '',
+              addresses: response.data.addresses || [],
+              defaultAddress: response.data.defaultAddress || null,
+              pending: response.data.pending || false,
+              firstName: response.data.firstName || '',
+              lastName: response.data.lastName || '',
+              phone: response.data.phone || '',
+              birthDate: response.data.birthDate || '',
+              gender: response.data.gender || '',
+              newsletter: response.data.newsletter || false,
+              active: response.data.active || false
+            });
             setIsAuthenticated(true);
-          } catch (error) {
-            console.error('Error al obtener datos del usuario actual:', error);
-            setUser(null);
-            setIsPending(false);
-            setIsAuthenticated(false);
-            // Limpiar el token si es inválido
-            authService.logout();
+            setIsPending(response.data.pending || false);
           }
-        } else {
-          // Si no hay token, establecer explícitamente como no autenticado
-          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('Error al verificar autenticación:', error);
-        // Si hay un error, limpiamos el estado
-        setUser(null);
-        setIsPending(false);
-        setIsAuthenticated(false);
+        localStorage.removeItem('authToken');
+        delete axios.defaults.headers.common['Authorization'];
       } finally {
-        // Siempre finalizar el estado de carga
         setLoading(false);
       }
     };
@@ -75,76 +122,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (identifier: string, password: string): Promise<boolean> => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      console.log('Intentando login con:', { identifier });
-      const userData = await authService.login(identifier, password);
+      setLoading(true);
+      setError(null);
       
-      console.log('Login exitoso:', userData);
-      setUser(userData);
-      setIsAuthenticated(true);
-      setIsPending(userData.pending || false);
+      const response = await axios.post(`${import.meta.env.VITE_WP_API_URL}/wp-json/jwt-auth/v1/token`, {
+        username: identifier,
+        password
+      });
       
-      if (userData.pending) {
-        alertService.warning('Tu cuenta está pendiente de aprobación por un administrador.');
-      } else {
-        alertService.success('Has iniciado sesión correctamente');
+      if (response.data.token) {
+        localStorage.setItem('authToken', response.data.token);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+        
+        // Obtener datos del usuario
+        const userResponse = await axios.get(`${import.meta.env.VITE_WP_API_URL}/wp-json/wp/v2/users/me`);
+        
+        setUser({
+          id: userResponse.data.id,
+          name: userResponse.data.name,
+          email: userResponse.data.email,
+          avatar: userResponse.data.avatar_urls?.['96'] || '',
+          addresses: userResponse.data.addresses || [],
+          defaultAddress: userResponse.data.defaultAddress || null,
+          pending: userResponse.data.pending || false,
+          firstName: userResponse.data.firstName || '',
+          lastName: userResponse.data.lastName || '',
+          phone: userResponse.data.phone || '',
+          birthDate: userResponse.data.birthDate || '',
+          gender: userResponse.data.gender || '',
+          newsletter: userResponse.data.newsletter || false,
+          active: userResponse.data.active || false
+        });
+        
+        setIsAuthenticated(true);
+        setIsPending(userResponse.data.pending || false);
+        
+        return true;
       }
       
-      return true; // Indicar que el login fue exitoso
-    } catch (error: any) {
-      console.error('Error en login:', error);
-      setIsAuthenticated(false);
-      setUser(null);
-      
-      // Manejar diferentes tipos de errores
-      if (error.response) {
-        // El servidor respondió con un código de error
-        if (error.response.status === 403) {
-          setError('Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.');
-          alertService.error('Credenciales incorrectas. Por favor, verifica tu usuario y contraseña.');
-        } else {
-          setError(error.response.data?.message || 'Error al iniciar sesión. Inténtalo de nuevo.');
-          alertService.error(error.response.data?.message || 'Error al iniciar sesión. Inténtalo de nuevo.');
-        }
-      } else if (error.request) {
-        // La solicitud se hizo pero no se recibió respuesta
-        setError('No se ha podido iniciar sesión, intente en un rato');
-        alertService.error('No se ha podido iniciar sesión, intente en un rato');
-      } else {
-        // Ocurrió un error al configurar la solicitud
-        setError(error.message || 'Error al iniciar sesión. Inténtalo de nuevo.');
-        alertService.error(error.message || 'Error al iniciar sesión. Inténtalo de nuevo.');
-      }
-      
-      return false; // Indicar que el login no fue exitoso
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const register = async (username: string, email: string, password: string, phone?: string) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      await authService.register(username, email, password, phone);
-      // No iniciamos sesión automáticamente después del registro
-      // porque el usuario queda pendiente de aprobación
-      alertService.success('Registro exitoso. Tu cuenta está pendiente de aprobación por un administrador.');
-      // Ya no cerramos el modal automáticamente para permitir mostrar el mensaje de éxito
-      // setShowRegisterModal(false);
-    } catch (error: any) {
-      console.error('Error en registro:', error);
-      if (error.response) {
-        setError(error.response.data?.message || 'Error al registrar usuario.');
-        alertService.error(error.response.data?.message || 'Error al registrar usuario.');
-      } else {
-        setError('Error al registrar usuario. Inténtalo de nuevo.');
-        alertService.error('Error al registrar usuario. Inténtalo de nuevo.');
-      }
+      return false; // Si no hay token en la respuesta
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error);
+      setError('Credenciales incorrectas. Por favor, intenta de nuevo.');
       throw error;
     } finally {
       setLoading(false);
@@ -152,28 +172,188 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    authService.logout();
+    localStorage.removeItem('authToken');
+    delete axios.defaults.headers.common['Authorization'];
     setUser(null);
-    setIsPending(false);
     setIsAuthenticated(false);
-    alertService.success('Has cerrado sesión correctamente');
+    setIsPending(false);
+  };
+
+  const register = async (username: string, email: string, password: string, phone?: string): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await axios.post(`${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/register`, {
+        username: email,
+        email,
+        password,
+        name: username,
+        phone
+      });
+      
+      // No iniciamos sesión automáticamente porque el usuario debe ser aprobado por un administrador
+    } catch (error) {
+      console.error('Error al registrarse:', error);
+      setError('Error al crear la cuenta. Por favor, intenta de nuevo.');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Guardar o actualizar dirección
+  const saveAddress = async (addressData: Partial<Address>): Promise<Address> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Verificar límite de 3 direcciones
+      if (!addressData.id && user?.addresses && user.addresses.length >= 3) {
+        throw new Error('Has alcanzado el límite máximo de 3 direcciones');
+      }
+      
+      const response = await axios.post(
+        `${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/user/addresses`,
+        addressData
+      );
+      
+      if (response.data.success) {
+        // Actualizar el usuario con las nuevas direcciones
+        setUser(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            addresses: response.data.addresses,
+            defaultAddress: response.data.addresses.find((addr: Address) => addr.isDefault) || null
+          };
+        });
+        
+        return response.data.address;
+      } else {
+        throw new Error('Error al guardar la dirección');
+      }
+    } catch (error: any) {
+      console.error('Error al guardar dirección:', error);
+      setError(error.message || 'Error al guardar la dirección');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Eliminar dirección
+  const deleteAddress = async (addressId: number): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await axios.delete(
+        `${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/user/addresses/${addressId}`
+      );
+      
+      if (response.data.success) {
+        // Actualizar el usuario con las direcciones actualizadas
+        setUser(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            addresses: response.data.addresses,
+            defaultAddress: response.data.addresses.find((addr: Address) => addr.isDefault) || null
+          };
+        });
+      } else {
+        throw new Error('Error al eliminar la dirección');
+      }
+    } catch (error: any) {
+      console.error('Error al eliminar dirección:', error);
+      setError(error.message || 'Error al eliminar la dirección');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Establecer dirección predeterminada
+  const setDefaultAddress = async (addressId: number): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await axios.post(
+        `${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/user/addresses/default/${addressId}`
+      );
+      
+      if (response.data.success) {
+        // Actualizar el usuario con las direcciones actualizadas
+        setUser(prev => {
+          if (!prev) return null;
+          
+          return {
+            ...prev,
+            addresses: response.data.addresses,
+            defaultAddress: response.data.addresses.find((addr: Address) => addr.isDefault) || null
+          };
+        });
+      } else {
+        throw new Error('Error al establecer la dirección predeterminada');
+      }
+    } catch (error: any) {
+      console.error('Error al establecer dirección predeterminada:', error);
+      setError(error.message || 'Error al establecer la dirección predeterminada');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateProfile = async (profileData: Partial<User>): Promise<void> => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await axios.post(`${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/user/profile`, profileData);
+      
+      if (response.data.success) {
+        // Actualizar el usuario con los datos actualizados
+        setUser(prev => {
+          if (!prev) return null;
+          
+          return { ...prev, ...profileData };
+        });
+      } else {
+        throw new Error('Error al actualizar el perfil');
+      }
+    } catch (error: any) {
+      console.error('Error al actualizar perfil:', error);
+      setError(error.message || 'Error al actualizar el perfil');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <AuthContext.Provider
       value={{
-        user,
         isAuthenticated,
+        user,
         login,
-        register,
         logout,
+        register,
+        loading,
+        error,
+        saveAddress,
+        deleteAddress,
+        setDefaultAddress,
+        updateProfile,
+        isPending,
         showLoginModal,
         setShowLoginModal,
         showRegisterModal,
-        setShowRegisterModal,
-        loading,
-        error,
-        isPending
+        setShowRegisterModal
       }}
     >
       {children}
