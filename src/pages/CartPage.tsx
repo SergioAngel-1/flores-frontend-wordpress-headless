@@ -2,17 +2,11 @@ import { useState, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { cartService } from '../services/api';
-import { Product } from '../types/woocommerce';
+import { CartItem } from '../types/woocommerce';
 import { formatCurrency } from '../utils/formatters';
 import { FiTrash2, FiShoppingBag, FiArrowLeft } from 'react-icons/fi';
 import alertify from 'alertifyjs';
 import ScrollToTopLink from '../components/common/ScrollToTopLink';
-
-// Definir la interfaz CartItem
-interface CartItem {
-  product: Product;
-  quantity: number;
-}
 
 // Componente memoizado para el resumen del pedido
 interface OrderSummaryProps {

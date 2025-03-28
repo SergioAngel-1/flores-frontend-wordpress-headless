@@ -49,6 +49,7 @@ interface AuthContextType {
   setShowLoginModal: (show: boolean) => void;
   showRegisterModal: boolean;
   setShowRegisterModal: (show: boolean) => void;
+  getCurrentUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,16 +90,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const response = await axios.get(`${import.meta.env.VITE_WP_API_URL}/wp-json/wp/v2/users/me`);
           
           if (response.data) {
+            console.log('Datos del usuario obtenidos:', response.data); // Depuración
+            
             setUser({
               id: response.data.id,
               name: response.data.name,
-              email: response.data.email,
+              email: response.data.email || '', // Asegurarse de que el email no sea undefined
               avatar: response.data.avatar_urls?.['96'] || '',
               addresses: response.data.addresses || [],
               defaultAddress: response.data.defaultAddress || null,
               pending: response.data.pending || false,
-              firstName: response.data.firstName || '',
-              lastName: response.data.lastName || '',
+              firstName: response.data.first_name || response.data.firstName || '',
+              lastName: response.data.last_name || response.data.lastName || '',
               phone: response.data.phone || '',
               birthDate: response.data.birthDate || '',
               gender: response.data.gender || '',
@@ -146,8 +149,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           addresses: userResponse.data.addresses || [],
           defaultAddress: userResponse.data.defaultAddress || null,
           pending: userResponse.data.pending || false,
-          firstName: userResponse.data.firstName || '',
-          lastName: userResponse.data.lastName || '',
+          firstName: userResponse.data.first_name || userResponse.data.firstName || '',
+          lastName: userResponse.data.last_name || userResponse.data.lastName || '',
           phone: userResponse.data.phone || '',
           birthDate: userResponse.data.birthDate || '',
           gender: userResponse.data.gender || '',
@@ -314,15 +317,71 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
       
+      console.log('Datos enviados a la API:', profileData); // Depuración
+      
+      // Usar el endpoint correcto que está registrado en user-profile-functions.php
       const response = await axios.post(`${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/user/profile`, profileData);
       
+      console.log('Respuesta del servidor:', response.data); // Depuración
+      
       if (response.data.success) {
-        // Actualizar el usuario con los datos actualizados
-        setUser(prev => {
-          if (!prev) return null;
-          
-          return { ...prev, ...profileData };
-        });
+        // Si el servidor devuelve los datos del usuario, usarlos directamente
+        if (response.data.user) {
+          setUser(prev => {
+            if (!prev) return null;
+            
+            console.log('Actualizando usuario con datos del servidor:', response.data.user); // Depuración
+            
+            return {
+              ...prev,
+              firstName: response.data.user.firstName,
+              lastName: response.data.user.lastName,
+              email: response.data.user.email,
+              phone: response.data.user.phone,
+              birthDate: response.data.user.birthDate,
+              gender: response.data.user.gender,
+              newsletter: response.data.user.newsletter,
+              active: response.data.user.active
+            };
+          });
+        } else {
+          // Si no hay datos del usuario en la respuesta, intentar recargar
+          try {
+            const userResponse = await axios.get(`${import.meta.env.VITE_WP_API_URL}/wp-json/wp/v2/users/me`);
+            
+            if (userResponse.data) {
+              setUser({
+                id: userResponse.data.id,
+                name: userResponse.data.name,
+                email: userResponse.data.email,
+                avatar: userResponse.data.avatar_urls?.['96'] || '',
+                addresses: userResponse.data.addresses || [],
+                defaultAddress: userResponse.data.defaultAddress || null,
+                pending: userResponse.data.pending || false,
+                firstName: userResponse.data.first_name || userResponse.data.firstName || '',
+                lastName: userResponse.data.last_name || userResponse.data.lastName || '',
+                phone: userResponse.data.phone || '',
+                birthDate: userResponse.data.birthDate || '',
+                gender: userResponse.data.gender || '',
+                newsletter: userResponse.data.newsletter || false,
+                active: userResponse.data.active || false
+              });
+            } else {
+              // Si no podemos recargar los datos, al menos actualizamos con lo que enviamos
+              setUser(prev => {
+                if (!prev) return null;
+                return { ...prev, ...profileData };
+              });
+            }
+          } catch (error) {
+            console.error('Error al recargar datos del usuario:', error);
+            // Si falla la recarga, actualizamos con los datos enviados
+            setUser(prev => {
+              if (!prev) return null;
+              return { ...prev, ...profileData };
+            });
+          }
+        }
       } else {
         throw new Error('Error al actualizar el perfil');
       }
@@ -332,6 +391,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       throw error;
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getCurrentUser = async (): Promise<User | null> => {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        return null;
+      }
+      
+      // Configurar el token en los headers
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Obtener datos del usuario
+      const response = await axios.get(`${import.meta.env.VITE_WP_API_URL}/wp-json/wp/v2/users/me`);
+      
+      if (response.data) {
+        // Log para depuración
+        console.log('Datos del usuario obtenidos en getCurrentUser:', response.data);
+        console.log('Email recibido:', response.data.email);
+        
+        // Crear objeto de usuario con los datos recibidos
+        const user: User = {
+          id: response.data.id,
+          name: response.data.name,
+          email: response.data.email || '', // Asegurarse de que el email nunca sea undefined
+          avatar: response.data.avatar_urls?.['96'] || '',
+          addresses: response.data.addresses || [],
+          defaultAddress: response.data.defaultAddress || null,
+          pending: response.data.pending || false,
+          firstName: response.data.first_name || response.data.firstName || '',
+          lastName: response.data.last_name || response.data.lastName || '',
+          phone: response.data.phone || '',
+          birthDate: response.data.birthDate || '',
+          gender: response.data.gender || '',
+          newsletter: response.data.newsletter || false,
+          active: response.data.active || false
+        };
+        
+        // Actualizar el estado del usuario
+        setUser(user);
+        
+        return user;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error al obtener datos del usuario:', error);
+      return null;
     }
   };
 
@@ -353,7 +462,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         showLoginModal,
         setShowLoginModal,
         showRegisterModal,
-        setShowRegisterModal
+        setShowRegisterModal,
+        getCurrentUser
       }}
     >
       {children}

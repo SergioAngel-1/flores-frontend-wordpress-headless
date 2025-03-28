@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
+import { orderService } from '../../../services/api';
 import alertService from '../../../services/alertService';
+import { cartService } from '../../../services/api';
 
 // Tipos para los pedidos
 interface OrderItem {
@@ -13,52 +16,56 @@ interface OrderItem {
 interface Order {
   id: number;
   date: string;
-  status: 'pending' | 'processing' | 'completed' | 'cancelled';
+  status: 'pending' | 'processing' | 'completed' | 'cancelled' | 'on-hold' | 'refunded' | 'failed';
   total: number;
   items: OrderItem[];
 }
 
 const OrdersSection = () => {
-  // Pedidos de ejemplo
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: 1001,
-      date: '2025-03-10',
-      status: 'completed',
-      total: 120000,
-      items: [
-        {
-          id: 1,
-          name: 'Ramo de rosas rojas',
-          price: 80000,
-          quantity: 1,
-          image: '/src/assets/images/products/ramo-rosas.jpg'
-        },
-        {
-          id: 2,
-          name: 'Tarjeta personalizada',
-          price: 20000,
-          quantity: 2,
-          image: '/src/assets/images/products/tarjeta.jpg'
-        }
-      ]
-    },
-    {
-      id: 1002,
-      date: '2025-03-15',
-      status: 'processing',
-      total: 95000,
-      items: [
-        {
-          id: 3,
-          name: 'Arreglo floral mixto',
-          price: 95000,
-          quantity: 1,
-          image: '/src/assets/images/products/arreglo-mixto.jpg'
-        }
-      ]
-    }
-  ]);
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Cargar los pedidos del usuario
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!user?.id) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        console.log('Obteniendo pedidos para el usuario:', user.id);
+        const response = await orderService.getCustomerOrders(user.id);
+        console.log('Respuesta de pedidos:', response.data);
+        
+        // Transformar los datos de la API al formato que necesitamos
+        const formattedOrders: Order[] = response.data.map((order: any) => ({
+          id: order.id,
+          date: order.date_created,
+          status: order.status,
+          total: parseFloat(order.total),
+          items: order.line_items.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            price: parseFloat(item.price),
+            quantity: item.quantity,
+            image: item.image?.src || 'https://via.placeholder.com/150'
+          }))
+        }));
+        
+        setOrders(formattedOrders);
+      } catch (err) {
+        console.error('Error al obtener pedidos:', err);
+        setError('No pudimos cargar tus pedidos. Por favor, intenta de nuevo más tarde.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchOrders();
+  }, [user?.id]);
 
   const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
 
@@ -76,6 +83,12 @@ const OrdersSection = () => {
         return { text: 'Completado', color: 'bg-green-100 text-green-800' };
       case 'cancelled':
         return { text: 'Cancelado', color: 'bg-red-100 text-red-800' };
+      case 'on-hold':
+        return { text: 'En espera', color: 'bg-orange-100 text-orange-800' };
+      case 'refunded':
+        return { text: 'Reembolsado', color: 'bg-purple-100 text-purple-800' };
+      case 'failed':
+        return { text: 'Fallido', color: 'bg-red-100 text-red-800' };
       default:
         return { text: status, color: 'bg-gray-100 text-gray-800' };
     }
@@ -98,11 +111,29 @@ const OrdersSection = () => {
     }).format(amount);
   };
 
-  const handleReorder = (orderId: number) => {
+  const handleReorder = async (orderId: number) => {
     const orderToReorder = orders.find(order => order.id === orderId);
     if (orderToReorder) {
-      console.log(`Reordenando productos del pedido ${orderId}`);
-      alertService.success('Los productos han sido agregados al carrito');
+      try {
+        // Añadir todos los productos del pedido al carrito
+        for (const item of orderToReorder.items) {
+          await cartService.addItem({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            images: [{ src: item.image }]
+          }, item.quantity);
+        }
+        
+        // Disparar evento para actualizar el contador del carrito
+        const event = new CustomEvent('cart-updated');
+        window.dispatchEvent(event);
+        
+        alertService.success('Los productos han sido agregados al carrito');
+      } catch (err) {
+        console.error('Error al reordenar productos:', err);
+        alertService.error('No pudimos añadir los productos al carrito. Por favor, intenta de nuevo.');
+      }
     }
   };
 
@@ -127,7 +158,22 @@ const OrdersSection = () => {
         <h4 className="text-lg font-medium text-gray-700">Mis pedidos</h4>
       </div>
 
-      {orders.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primario border-t-transparent"></div>
+          <p className="mt-2 text-gray-500">Cargando tus pedidos...</p>
+        </div>
+      ) : error ? (
+        <div className="text-center py-8">
+          <p className="text-red-500">{error}</p>
+          <button 
+            className="mt-2 text-primario hover:underline"
+            onClick={() => window.location.reload()}
+          >
+            Intentar de nuevo
+          </button>
+        </div>
+      ) : orders.length === 0 ? (
         <div className="text-center py-8">
           <p className="text-gray-500">No tienes pedidos realizados.</p>
         </div>
@@ -201,13 +247,19 @@ const OrdersSection = () => {
 
                   <div className="mt-6 flex flex-col sm:flex-row sm:justify-end space-y-2 sm:space-y-0 sm:space-x-2">
                     <button
-                      onClick={() => handleRequestHelp(order.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRequestHelp(order.id);
+                      }}
                       className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                     >
                       Ayuda con este pedido
                     </button>
                     <button
-                      onClick={() => handleReorder(order.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReorder(order.id);
+                      }}
                       className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover"
                     >
                       Volver a pedir

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { gsap } from 'gsap';
 import { cartService } from '../../services/api';
 import { Product } from '../../types/woocommerce';
+import alertService from '../../services/alertService';
+import ScrollToTopLink from '../common/ScrollToTopLink';
 
 interface AddToCartButtonProps {
   product: Product;
@@ -44,6 +46,9 @@ const AddToCartButton = ({
         // Si no existe, añadir como nuevo
         cartService.addItem(product, quantity);
       }
+      
+      // Mostrar alerta de producto agregado
+      alertService.success(`${product.name} agregado al carrito`);
       
       // Disparar evento personalizado para actualizar el contador del carrito
       const event = new CustomEvent('cart-updated');
@@ -140,12 +145,12 @@ const AddToCartButton = ({
       
       {added && (
         <div className="mt-2 flex justify-center">
-          <a 
-            href="/carrito" 
+          <ScrollToTopLink 
+            to="/carrito" 
             className="text-sm text-primario hover:text-hover transition-colors"
           >
             Ver carrito
-          </a>
+          </ScrollToTopLink>
         </div>
       )}
     </div>

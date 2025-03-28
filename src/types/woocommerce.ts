@@ -184,6 +184,14 @@ export interface LineItem {
   price: number;
 }
 
+export interface CartItem {
+  id: number;
+  product: Product;
+  quantity: number;
+  variation_id?: number;
+  variation?: any;
+}
+
 export interface ApiResponse<T> {
   data: T;
   status: number;

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import floresLogo from '../../assets/images/flores-logo.png';
 import { gsap } from 'gsap';
 import { cartService } from '../../services/api';
@@ -15,6 +14,7 @@ import HeaderIcons from './HeaderIcons';
 import { IoMdFlash } from 'react-icons/io';
 import AddressBar from './AddressBar';
 import useWordPressMenu from '../../hooks/useWordPressMenu';
+import ScrollToTopLink from '../common/ScrollToTopLink';
 
 const Header = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -166,7 +166,7 @@ const Header = () => {
         <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <Link 
+              <ScrollToTopLink 
                 to="#"
                 onClick={(e) => {
                   e.preventDefault();
@@ -176,7 +176,7 @@ const Header = () => {
               >
                 <IoMdFlash className="h-4 w-4 mr-1 text-yellow-500" />
                 Hiperofertas
-              </Link>
+              </ScrollToTopLink>
               
               {/* Dirección actual */}
               <AddressBar 
@@ -188,7 +188,7 @@ const Header = () => {
             {/* Enlaces de la derecha */}
             <div className="flex items-center space-x-2">
               {isAuthenticated && (
-                <Link
+                <ScrollToTopLink
                   to="/mis-pedidos"
                   className="tab-push hover:text-white"
                   onClick={(e) => {
@@ -197,15 +197,15 @@ const Header = () => {
                   }}
                 >
                   Mis pedidos
-                </Link>
+                </ScrollToTopLink>
               )}
-              <Link 
+              <ScrollToTopLink 
                 to="/referidos" 
                 className="tab-push hidden md:inline-block hover:text-white"
               >
                 Referidos
-              </Link>
-              <Link 
+              </ScrollToTopLink>
+              <ScrollToTopLink 
                 to="#" 
                 className="tab-push hidden md:inline-block hover:text-white"
                 onClick={(e) => {
@@ -214,8 +214,8 @@ const Header = () => {
                 }}
               >
                 ¿Cómo pedir?
-              </Link>
-              <Link 
+              </ScrollToTopLink>
+              <ScrollToTopLink 
                 to="#" 
                 className="tab-push hidden lg:inline-block hover:text-white"
                 onClick={(e) => {
@@ -224,7 +224,7 @@ const Header = () => {
                 }}
               >
                 Ayuda
-              </Link>
+              </ScrollToTopLink>
             </div>
           </div>
         </div>
@@ -241,9 +241,9 @@ const Header = () => {
           <div className="flex justify-between items-center">
             {/* Logo */}
             <div className="flex items-center">
-              <Link to="/" className="flex items-center">
+              <ScrollToTopLink to="/" className="flex items-center logo">
                 <img src={floresLogo} alt="Flores Inc." className="h-10 md:h-12" />
-              </Link>
+              </ScrollToTopLink>
             </div>
 
             {/* Barra de búsqueda */}
