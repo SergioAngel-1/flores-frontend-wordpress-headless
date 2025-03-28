@@ -7,6 +7,7 @@ import ProfileModal from '../profile/ProfileModal';
 import HiperofertasModal from '../products/HiperofertasModal';
 import HelpModal from '../help/HelpModal';
 import CartModal from '../cart/CartModal';
+import PointsModal from '../modals/PointsModal';
 import MobileMenu from './MobileMenu';
 import MainMenu from './MainMenu';
 import SearchBar from './SearchBar';
@@ -21,6 +22,7 @@ const Header = () => {
   const [isHiperofertasModalOpen, setIsHiperofertasModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+  const [isPointsModalOpen, setIsPointsModalOpen] = useState(false);
   const [helpModalInitialTab, setHelpModalInitialTab] = useState<'help' | 'howToOrder'>('help');
   const [activeTab, setActiveTab] = useState('inicio');
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,6 +82,15 @@ const Header = () => {
 
   const closeCartModal = () => {
     setIsCartModalOpen(false);
+  };
+
+  // Abrir/cerrar modal de puntos
+  const openPointsModal = () => {
+    setIsPointsModalOpen(true);
+  };
+
+  const closePointsModal = () => {
+    setIsPointsModalOpen(false);
   };
 
   // Actualizar contador de carrito
@@ -297,6 +308,7 @@ const Header = () => {
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               categories={menuCategories}
+              openPointsModal={openPointsModal}
             />
           )}
         </div>
@@ -339,6 +351,13 @@ const Header = () => {
         <CartModal 
           isOpen={isCartModalOpen} 
           onClose={closeCartModal} 
+        />
+      )}
+
+      {isPointsModalOpen && (
+        <PointsModal
+          isOpen={isPointsModalOpen}
+          onClose={closePointsModal}
         />
       )}
     </>

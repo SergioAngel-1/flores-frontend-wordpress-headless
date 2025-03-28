@@ -11,6 +11,7 @@ import LandingPage from './pages/LandingPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsConditionsPage from './pages/TermsConditionsPage'
 import ContactPage from './pages/ContactPage'
+import ReferidosPage from './pages/ReferidosPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AuthModals from './components/auth/AuthModals'
 import './index.css'
@@ -42,6 +43,7 @@ function AppContent() {
             <Route path="/carrito" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/busqueda" element={<SearchPage />} />
+            <Route path="/referidos" element={<ReferidosPage />} />
             <Route path="/privacidad" element={<PrivacyPolicyPage />} />
             <Route path="/terminos" element={<TermsConditionsPage />} />
             <Route path="/contacto" element={<ContactPage />} />

@@ -3,6 +3,7 @@ import { Product, Category } from '../types/woocommerce';
 import OAuth from 'oauth-1.0a';
 import CryptoJS from 'crypto-js';
 import { showServerErrorAlert } from './alertService';
+import * as config from '../config';
 
 // Variables para controlar los errores de servidor
 let serverErrorShown = false;
@@ -12,7 +13,7 @@ const ERROR_COOLDOWN = 10000; // 10 segundos entre alertas
 // Obtener las claves de la API de WooCommerce
 const consumerKey = import.meta.env.VITE_WC_CONSUMER_KEY;
 const consumerSecret = import.meta.env.VITE_WC_CONSUMER_SECRET;
-const apiUrl = ''; // URL vacía para usar rutas relativas con el proxy de Vite
+const apiUrl = config.API_URL; // Usar la URL base definida en config.ts
 
 // Configuración de OAuth 1.0a
 const oauth = new OAuth({
@@ -37,9 +38,37 @@ const getAuthHeaders = (url: string, method: string) => {
   return oauth.authorize(requestData);
 };
 
+// Configurar axios para incluir credenciales en todas las solicitudes
+axios.defaults.withCredentials = true;
+
+// Interceptor para manejar errores de red
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('Error en solicitud API:', error);
+    
+    // Solo mostrar alerta si no se ha mostrado recientemente
+    const currentTime = Date.now();
+    if (!serverErrorShown || (currentTime - lastErrorTime > ERROR_COOLDOWN)) {
+      serverErrorShown = true;
+      lastErrorTime = currentTime;
+      
+      // Mostrar mensaje de error al usuario
+      showServerErrorAlert();
+      
+      // Resetear el estado después del cooldown
+      setTimeout(() => {
+        serverErrorShown = false;
+      }, ERROR_COOLDOWN);
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
 // Crear instancia de Axios para WooCommerce API
 const wooCommerceApi = axios.create({
-  baseURL: `/wp-json/wc/v3`,
+  baseURL: `${apiUrl}/wp-json/wc/v3`,
   timeout: 10000, // Timeout global de 10 segundos
   headers: {
     'Content-Type': 'application/json',
@@ -53,7 +82,7 @@ wooCommerceApi.interceptors.request.use(config => {
   config.params = config.params || {};
   
   // Construir la URL completa para la firma OAuth
-  const urlObj = new URL(`http://flores.local/wp-json/wc/v3${config.url || ''}`);
+  const urlObj = new URL(`${apiUrl}/wp-json/wc/v3${config.url || ''}`);
   
   // Añadir parámetros existentes a la URL
   Object.entries(config.params).forEach(([key, value]) => {
@@ -147,7 +176,7 @@ export const authService = {
     try {
       // Primero intentamos con JWT
       try {
-        const jwtResponse = await axios.post(`/jwt-auth/v1/token`, {
+        const jwtResponse = await axios.post(`${apiUrl}/jwt-auth/v1/token`, {
           username: identifier,
           password
         }, {
@@ -177,7 +206,7 @@ export const authService = {
       }
       
       // Método alternativo: uso de cookies de autenticación de WordPress
-      const cookieResponse = await axios.post(`/wp-json/api/v1/token`, {
+      const cookieResponse = await axios.post(`${apiUrl}/wp-json/api/v1/token`, {
         username: identifier,
         password
       }, {
@@ -290,7 +319,7 @@ export const authService = {
       }
       
       // Intentar obtener el usuario con token JWT
-      const response = await axios.get(`/wp-json/wp/v2/users/me`, {
+      const response = await axios.get(`${apiUrl}/wp-json/wp/v2/users/me`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('wpToken')}`
         }
@@ -373,7 +402,7 @@ export const categoryService = {
   getById: (id: number) => wooCommerceApi.get<Category>(`/products/categories/${id}`),
   getBySlug: (slug: string) => {
     // Intentar primero con el endpoint personalizado que maneja slugs normalizados
-    return axios.get<Category[]>(`/wp-json/floresinc/v1/product-categories`, { 
+    return axios.get<Category[]>(`${apiUrl}/wp-json/floresinc/v1/product-categories`, { 
       params: { slug }
     }).catch(error => {
       console.error('Error al obtener categoría por slug con endpoint personalizado:', error);
@@ -561,10 +590,43 @@ export const orderService = {
   }
 };
 
+// Servicio para puntos y referidos
+export const pointsService = {
+  // Obtener puntos del usuario
+  getUserPoints() {
+    return axios.get(`${apiUrl}/wp-json/floresinc/v1/points`, {
+      withCredentials: true
+    });
+  },
+  
+  // Obtener transacciones de puntos
+  getTransactions(page = 1) {
+    return axios.get(`${apiUrl}/wp-json/floresinc/v1/points/transactions`, {
+      params: { page },
+      withCredentials: true
+    });
+  },
+  
+  // Obtener estadísticas de referidos
+  getReferralStats() {
+    return axios.get(`${apiUrl}/wp-json/floresinc/v1/referrals/stats`, {
+      withCredentials: true
+    });
+  },
+  
+  // Obtener código de referido
+  getReferralCode() {
+    return axios.get(`${apiUrl}/wp-json/floresinc/v1/referrals/code`, {
+      withCredentials: true
+    });
+  }
+};
+
 export default {
   productService,
   categoryService,
   cartService,
   orderService,
-  authService
+  authService,
+  pointsService
 };
