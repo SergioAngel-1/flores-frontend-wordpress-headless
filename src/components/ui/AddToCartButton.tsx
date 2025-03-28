@@ -33,8 +33,17 @@ const AddToCartButton = ({
     
     // Simulamos un pequeño retraso para la experiencia de usuario
     setTimeout(() => {
-      // Agregar al carrito
-      cartService.addItem(product, quantity);
+      // Verificar si el producto ya está en el carrito
+      const cartItems = cartService.getItems();
+      const existingItem = cartItems.find((item: any) => item.id === product.id);
+      
+      if (existingItem) {
+        // Si ya existe, actualizar la cantidad directamente en lugar de sumarla
+        cartService.updateItemQuantity(product.id, quantity);
+      } else {
+        // Si no existe, añadir como nuevo
+        cartService.addItem(product, quantity);
+      }
       
       // Disparar evento personalizado para actualizar el contador del carrito
       const event = new CustomEvent('cart-updated');
@@ -101,33 +110,31 @@ const AddToCartButton = ({
       <button
         type="button"
         onClick={handleAddToCart}
-        disabled={adding || added}
-        className={`add-to-cart-btn-${product.id} flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primario transition-colors ${
-          adding ? 'opacity-75 cursor-wait' : ''
-        } ${added ? 'bg-acento' : ''}`}
+        disabled={adding}
+        className={`add-to-cart-btn-${product.id} bg-primario hover:bg-hover text-white py-2 px-4 rounded-md transition-colors duration-300 flex items-center justify-center ${className}`}
       >
         {adding ? (
-          <>
+          <span className="flex items-center">
             <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             Agregando...
-          </>
+          </span>
         ) : added ? (
-          <>
-            <svg className="-ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <span className="flex items-center">
+            <svg className="-ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            ¡Agregado!
-          </>
+            Agregado
+          </span>
         ) : (
-          <>
-            <svg className="-ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <span className="flex items-center">
+            <svg className="-ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             {buttonText}
-          </>
+          </span>
         )}
       </button>
       

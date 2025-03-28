@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Product } from '../../types/woocommerce';
 import { cartService } from '../../services/api';
 import { FiPlus, FiMinus } from 'react-icons/fi';
+import { formatCurrency } from '../../utils/formatters';
 
 interface ProductCardProps {
   product: Product;
@@ -93,7 +94,7 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
         
         <div className="mt-auto pt-2 flex justify-between items-center">
           <span className="text-primario font-bold">
-            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(product.price) || 0)}
+            {formatCurrency(product.price)}
           </span>
           
           {quantity === 0 ? (
@@ -131,4 +132,13 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
   );
 };
 
-export default ProductCard;
+// Usar React.memo para evitar re-renderizados innecesarios
+export default memo(ProductCard, (prevProps, nextProps) => {
+  // Solo re-renderizar si cambia el producto o las clases
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.price === nextProps.product.price &&
+    prevProps.className === nextProps.className &&
+    prevProps.animationClass === nextProps.animationClass
+  );
+});

@@ -21,7 +21,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({
   featuredCategoriesError
 }) => {
   return (
-    <section className="bg-claro py-4 w-full">
+    <section className="bg-gradient-to-b from-[var(--claro)] to-white py-4 w-full">
       <div className="w-full max-w-[1920px] mx-auto px-16 md:px-16 max-w-full">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Hero Banner - Ocupa 2/3 en desktop */}

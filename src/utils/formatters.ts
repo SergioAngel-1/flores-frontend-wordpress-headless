@@ -1,15 +1,17 @@
 /**
- * Formatea un número como moneda en formato MXN
+ * Formatea un número como moneda en formato COP
  * @param amount - Cantidad a formatear
  * @returns Cadena formateada como moneda
  */
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: 'MXN',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(amount);
+export const formatCurrency = (amount: number | string): string => {
+  // Convertir a número si es una cadena
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  
+  // Formatear como COP sin decimales
+  return `COP ${numAmount.toLocaleString('es-CO', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  })}`;
 };
 
 /**

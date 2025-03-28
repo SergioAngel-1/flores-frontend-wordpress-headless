@@ -1,13 +1,18 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { productService } from '../services/api';
-import { Product } from '../types/woocommerce';
+import { productService, categoryService, cartService } from '../services/api';
+import { Product, Category } from '../types/woocommerce';
 import AddToCartButton from '../components/ui/AddToCartButton';
+import Breadcrumbs from '../components/ui/Breadcrumbs';
+import RelatedProducts from '../components/products/RelatedProducts';
+import PromotionalGrid from '../components/products/PromotionalGrid';
+import { formatCurrency } from '../utils/formatters';
 
 const ProductDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -21,6 +26,19 @@ const ProductDetailPage = () => {
         setLoading(true);
         const response = await productService.getById(parseInt(id));
         setProduct(response.data);
+        
+        // Obtener información detallada de las categorías
+        if (response.data && response.data.categories && response.data.categories.length > 0) {
+          const categoryIds = response.data.categories.map((cat: any) => cat.id);
+          const categoryPromises = categoryIds.map((catId: number) => 
+            categoryService.getById(catId)
+          );
+          
+          const categoryResponses = await Promise.all(categoryPromises);
+          const categoryData = categoryResponses.map(res => res.data);
+          setCategories(categoryData);
+        }
+        
         setLoading(false);
       } catch (err) {
         console.error('Error fetching product:', err);
@@ -30,6 +48,9 @@ const ProductDetailPage = () => {
     };
 
     fetchProduct();
+    
+    // Scroll al inicio de la página cuando cambia el ID del producto
+    window.scrollTo(0, 0);
   }, [id]);
 
   // Animaciones con GSAP
@@ -68,6 +89,27 @@ const ProductDetailPage = () => {
     setQuantity(quantity + 1);
   };
 
+  const handleAddToCart = () => {
+    // Añadir al carrito con la cantidad seleccionada
+    if (product) {
+      // Verificar si el producto ya está en el carrito
+      const cartItems = cartService.getItems();
+      const existingItem = cartItems.find((item: any) => item.id === product.id);
+      
+      if (existingItem) {
+        // Si ya existe, actualizar la cantidad directamente en lugar de sumarla
+        cartService.updateItemQuantity(product.id, quantity);
+      } else {
+        // Si no existe, añadir como nuevo
+        cartService.addItem(product, quantity);
+      }
+      
+      // Disparar evento de actualización del carrito
+      const event = new CustomEvent('cart-updated');
+      window.dispatchEvent(event);
+    }
+  };
+
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-16 flex justify-center items-center min-h-[60vh]">
@@ -91,67 +133,69 @@ const ProductDetailPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-16">
-      <div className="mb-6">
-        <Link to="/tienda" className="text-primario hover:text-hover flex items-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-          </svg>
-          Volver a la tienda
-        </Link>
-      </div>
+    <div className="container mx-auto px-4 py-8 md:py-12">
+      {/* Migas de pan */}
+      <Breadcrumbs 
+        categories={categories} 
+        currentProduct={product.name}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-        {/* Galería de imágenes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
+        {/* Galería de imágenes - Versión mejorada */}
         <div className="product-animate">
-          <div className="bg-white rounded-lg overflow-hidden shadow-md mb-4">
-            <img 
-              src={product.images && product.images.length > 0 
-                ? product.images[activeImage].src 
-                : 'https://via.placeholder.com/600x600?text=No+Image'
-              } 
-              alt={product.name} 
-              className="w-full h-auto object-cover"
-            />
-          </div>
-          
-          {/* Miniaturas */}
-          {product.images && product.images.length > 1 && (
-            <div className="grid grid-cols-5 gap-2">
-              {product.images.map((image, index) => (
-                <button 
-                  key={image.id} 
-                  className={`border-2 rounded overflow-hidden ${index === activeImage ? 'border-primario' : 'border-gray-200'}`}
-                  onClick={() => setActiveImage(index)}
-                >
-                  <img 
-                    src={image.src} 
-                    alt={`${product.name} - imagen ${index + 1}`} 
-                    className="w-full h-auto object-cover"
-                  />
-                </button>
-              ))}
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Miniaturas verticales */}
+            {product.images && product.images.length > 1 && (
+              <div className="order-2 md:order-1 flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:max-h-[500px] py-2 md:py-0">
+                {product.images.map((image, index) => (
+                  <button 
+                    key={image.id} 
+                    className={`flex-shrink-0 border-2 rounded overflow-hidden 
+                      ${index === activeImage ? 'border-primario' : 'border-gray-200'}
+                      w-16 h-16 md:w-20 md:h-20 transition-all hover:opacity-90`}
+                    onClick={() => setActiveImage(index)}
+                  >
+                    <img 
+                      src={image.src} 
+                      alt={`${product.name} - imagen ${index + 1}`} 
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            {/* Imagen principal */}
+            <div className="order-1 md:order-2 flex-grow bg-white rounded-lg overflow-hidden shadow-md">
+              <img 
+                src={product.images && product.images.length > 0 
+                  ? product.images[activeImage].src 
+                  : 'https://via.placeholder.com/600x600?text=No+Image'
+                } 
+                alt={product.name} 
+                className="w-full h-auto object-contain max-h-[500px]"
+              />
             </div>
-          )}
+          </div>
         </div>
         
         {/* Detalles del producto */}
         <div>
-          <h1 className="text-3xl font-bold text-oscuro mb-2 product-animate">{product.name}</h1>
+          <h1 className="text-3xl font-bold text-oscuro mb-3 product-animate">{product.name}</h1>
           
           <div className="mb-4 product-animate">
             <span className="text-2xl font-semibold text-primario">
-              ${parseFloat(product.price).toFixed(2)}
+              {formatCurrency(product.price)}
             </span>
             {product.regular_price !== product.price && (
               <span className="ml-2 text-gray-500 line-through">
-                ${parseFloat(product.regular_price).toFixed(2)}
+                {formatCurrency(product.regular_price)}
               </span>
             )}
           </div>
           
           <div 
-            className="mb-6 text-texto product-animate"
+            className="mb-6 text-texto product-animate prose prose-sm max-w-none"
             dangerouslySetInnerHTML={{ __html: product.description }}
           />
           
@@ -194,35 +238,22 @@ const ProductDetailPage = () => {
               showQuantity={false} 
               buttonText="Agregar al carrito"
               className="w-full"
+              onAddToCart={handleAddToCart}
             />
           </div>
           
-          {/* Información adicional */}
-          <div className="mt-8 border-t border-gray-200 pt-6 product-animate">
-            <h3 className="text-lg font-medium mb-3">Información adicional</h3>
-            <ul className="space-y-2">
-              <li className="flex">
-                <span className="font-medium w-32">SKU:</span>
-                <span>{product.sku || 'N/A'}</span>
-              </li>
-              <li className="flex">
-                <span className="font-medium w-32">Categorías:</span>
-                <span>
-                  {product.categories && product.categories.length > 0
-                    ? product.categories.map(cat => cat.name).join(', ')
-                    : 'Sin categoría'}
-                </span>
-              </li>
-              <li className="flex">
-                <span className="font-medium w-32">Disponibilidad:</span>
-                <span className={product.stock_status === 'instock' ? 'text-green-600' : 'text-red-600'}>
-                  {product.stock_status === 'instock' ? 'En stock' : 'Agotado'}
-                </span>
-              </li>
-            </ul>
-          </div>
+          {/* Grilla publicitaria de productos (reemplaza la información adicional) */}
+          <PromotionalGrid />
         </div>
       </div>
+      
+      {/* Productos relacionados */}
+      {product.categories && product.categories.length > 0 && (
+        <RelatedProducts 
+          productId={product.id} 
+          categoryIds={product.categories.map(cat => cat.id)}
+        />
+      )}
     </div>
   );
 };

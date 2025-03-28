@@ -94,7 +94,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         {cartItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 p-4">
+          <div className="flex flex-col items-center justify-center flex-grow h-[calc(100vh-180px)] p-4">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
@@ -108,7 +108,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
             </Link>
           </div>
         ) : (
-          <>
+          <div className="overflow-auto h-[calc(100vh-180px)]">
             <div className="divide-y divide-gray-200">
               {cartItems.map((item) => (
                 <div key={item.id} className="p-4 flex items-center">
@@ -159,34 +159,35 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                 </div>
               ))}
             </div>
-            
-            <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-gray-200 p-4">
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-medium">Total:</span>
-                <span className="text-xl font-bold text-primario">
-                  {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(total)}
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <Link 
-                  to="/carrito" 
-                  className="bg-white border border-primario text-primario py-2 px-4 rounded text-center hover:bg-primario/10 transition-colors"
-                  onClick={onClose}
-                >
-                  Ver carrito
-                </Link>
-                <Link 
-                  to="/checkout" 
-                  className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-hover transition-colors hover:!text-white"
-                  onClick={onClose}
-                >
-                  Finalizar compra
-                </Link>
-              </div>
-            </div>
-          </>
+          </div>
         )}
+        
+        {/* Footer con total siempre visible */}
+        <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-gray-200 p-4">
+          <div className="flex justify-between items-center mb-4">
+            <span className="font-medium">Total:</span>
+            <span className="text-xl font-bold text-primario">
+              {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(total)}
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <Link 
+              to="/carrito" 
+              className="bg-white border border-primario text-primario py-2 px-4 rounded text-center hover:bg-primario/10 transition-colors"
+              onClick={onClose}
+            >
+              Ver carrito
+            </Link>
+            <Link 
+              to="/checkout" 
+              className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-hover transition-colors hover:!text-white"
+              onClick={onClose}
+            >
+              Finalizar compra
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
