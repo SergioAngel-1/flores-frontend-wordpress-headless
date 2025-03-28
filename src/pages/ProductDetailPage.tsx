@@ -10,7 +10,7 @@ import PromotionalGrid from '../components/products/PromotionalGrid';
 import { formatCurrency } from '../utils/formatters';
 
 const ProductDetailPage = () => {
-  const { id } = useParams<{ id: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,38 +20,58 @@ const ProductDetailPage = () => {
 
   useEffect(() => {
     const fetchProduct = async () => {
-      if (!id) return;
+      if (!slug) return;
       
       try {
         setLoading(true);
-        const response = await productService.getById(parseInt(id));
-        setProduct(response.data);
         
-        // Obtener información detallada de las categorías
-        if (response.data && response.data.categories && response.data.categories.length > 0) {
-          const categoryIds = response.data.categories.map((cat: any) => cat.id);
-          const categoryPromises = categoryIds.map((catId: number) => 
-            categoryService.getById(catId)
-          );
+        // Intentar buscar por slug primero
+        const response = await productService.getBySlug(slug);
+        
+        // La API devuelve un array cuando se busca por slug
+        if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+          // Tomamos el primer producto que coincida con el slug
+          setProduct(response.data[0]);
           
-          const categoryResponses = await Promise.all(categoryPromises);
-          const categoryData = categoryResponses.map(res => res.data);
-          setCategories(categoryData);
+          // Obtener información detallada de las categorías
+          if (response.data[0].categories && response.data[0].categories.length > 0) {
+            const categoryPromises = response.data[0].categories.map((cat: any) => 
+              categoryService.getById(cat.id)
+            );
+            
+            const categoryResponses = await Promise.all(categoryPromises);
+            setCategories(categoryResponses.map(res => res.data));
+          }
+        } else if (!isNaN(parseInt(slug))) {
+          // Si el slug es numérico, intentar buscar por ID como fallback
+          const idResponse = await productService.getById(parseInt(slug));
+          setProduct(idResponse.data);
+          
+          if (idResponse.data.categories && idResponse.data.categories.length > 0) {
+            const categoryPromises = idResponse.data.categories.map((cat: any) => 
+              categoryService.getById(cat.id)
+            );
+            
+            const categoryResponses = await Promise.all(categoryPromises);
+            setCategories(categoryResponses.map((res: any) => res.data));
+          }
+        } else {
+          throw new Error('Producto no encontrado');
         }
         
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching product:', err);
-        setError('No se pudo cargar el producto. Por favor, intenta de nuevo más tarde.');
+        console.error('Error al cargar el producto:', err);
+        setError('No se pudo cargar el producto. Por favor, inténtalo de nuevo más tarde.');
         setLoading(false);
       }
     };
-
+    
     fetchProduct();
     
-    // Scroll al inicio de la página cuando cambia el ID del producto
+    // Scroll al inicio de la página cuando cambia el slug del producto
     window.scrollTo(0, 0);
-  }, [id]);
+  }, [slug]);
 
   // Animaciones con GSAP
   useEffect(() => {
@@ -138,6 +158,7 @@ const ProductDetailPage = () => {
       <Breadcrumbs 
         categories={categories} 
         currentProduct={product.name}
+        currentCategory={categories.length > 0 ? categories[0].name : undefined}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">

@@ -1,13 +1,24 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Category } from '../../types/woocommerce';
+import { generateSlug } from '../../utils/formatters';
 
 interface BreadcrumbsProps {
   categories?: Category[];
   currentProduct?: string;
+  currentCategory?: string;
 }
 
-const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ categories, currentProduct }) => {
+const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ categories, currentProduct, currentCategory }) => {
+  // Filtrar categorías duplicadas y la categoría actual
+  const filteredCategories = categories?.filter(category => {
+    // Si no hay categoría actual, mostrar todas las categorías
+    if (!currentCategory) return true;
+    
+    // Si hay categoría actual, no mostrar categorías con el mismo nombre
+    return category.name.toLowerCase() !== currentCategory.toLowerCase();
+  });
+
   return (
     <nav className="flex mb-6" aria-label="Breadcrumb">
       <ol className="inline-flex items-center space-x-1 md:space-x-3 flex-wrap">
@@ -25,18 +36,23 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ categories, currentProduct })
             <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
               <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"></path>
             </svg>
-            <Link to="/tienda" className="ml-1 text-sm text-gray-500 hover:text-primario md:ml-2">Tienda</Link>
+            <Link 
+              to={currentCategory ? `/categoria/${generateSlug(currentCategory)}` : "/tienda"} 
+              className="ml-1 text-sm text-gray-500 hover:text-primario md:ml-2"
+            >
+              {currentCategory || "Tienda"}
+            </Link>
           </div>
         </li>
         
-        {categories && categories.map((category) => (
+        {filteredCategories && filteredCategories.length > 0 && filteredCategories.map((category) => (
           <li key={category.id}>
             <div className="flex items-center">
               <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                 <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"></path>
               </svg>
               <Link 
-                to={`/categoria/${category.slug}`} 
+                to={`/categoria/${category.slug || generateSlug(category.name)}`} 
                 className="ml-1 text-sm text-gray-500 hover:text-primario md:ml-2"
               >
                 {category.name}

@@ -1,13 +1,13 @@
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
-import { Category } from '../../data/menuCategories';
+import { MenuCategory } from '../../types/menu';
 
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  categories: Category[];
+  categories: MenuCategory[];
 }
 
 const MobileMenu: FC<MobileMenuProps> = ({ 
@@ -46,37 +46,48 @@ const MobileMenu: FC<MobileMenuProps> = ({
               </Link>
             </li>
             
-            {categories.map(category => (
-              <li key={category.id} className="py-1">
-                <div className="flex flex-col">
-                  <Link 
-                    to={`/categoria/${category.slug}`}
-                    className={`block py-2 px-4 rounded-md ${activeTab === category.slug ? 'bg-primario text-white' : 'hover:bg-gray-100'}`}
-                    onClick={() => {
-                      setActiveTab(category.slug);
-                      onClose();
-                    }}
-                  >
-                    {category.name}
-                  </Link>
-                  
-                  {category.subcategories && category.subcategories.length > 0 && (
-                    <div className="ml-4 mt-1 space-y-1">
-                      {category.subcategories.map(subcategory => (
-                        <Link
-                          key={subcategory.id}
-                          to={`/categoria/${subcategory.slug}`}
-                          className="block py-1 px-4 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
-                          onClick={onClose}
-                        >
-                          {subcategory.name}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+            {categories.length === 0 ? (
+              <li className="py-4">
+                <div className="animate-pulse space-y-3">
+                  <div className="h-5 bg-gray-200 rounded w-3/4"></div>
+                  <div className="h-5 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-5 bg-gray-200 rounded w-2/3"></div>
+                  <div className="h-5 bg-gray-200 rounded w-3/5"></div>
                 </div>
               </li>
-            ))}
+            ) : (
+              categories.map(category => (
+                <li key={category.id} className="py-1">
+                  <div className="flex flex-col">
+                    <Link 
+                      to={`/categoria/${category.slug}`}
+                      className={`block py-2 px-4 rounded-md ${activeTab === category.slug ? 'bg-primario text-white' : 'hover:bg-gray-100'}`}
+                      onClick={() => {
+                        setActiveTab(category.slug);
+                        onClose();
+                      }}
+                    >
+                      {category.name}
+                    </Link>
+                    
+                    {category.subcategories && category.subcategories.length > 0 && (
+                      <div className="ml-4 mt-1 space-y-1">
+                        {category.subcategories.map(subcategory => (
+                          <Link
+                            key={subcategory.id}
+                            to={`/categoria/${subcategory.slug}`}
+                            className="block py-1 px-4 text-sm text-gray-700 hover:bg-gray-100 rounded-md"
+                            onClick={onClose}
+                          >
+                            {subcategory.name}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </li>
+              ))
+            )}
             
             <li>
               <Link 

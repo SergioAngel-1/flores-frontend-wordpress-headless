@@ -336,6 +336,7 @@ export const authService = {
 export const productService = {
   getAll: (params = {}) => wooCommerceApi.get<Product[]>('/products', { params }),
   getById: (id: number) => wooCommerceApi.get<Product>(`/products/${id}`),
+  getBySlug: (slug: string) => wooCommerceApi.get<Product[]>('/products', { params: { slug } }),
   getByCategory: (categoryId: number, params = {}) => 
     wooCommerceApi.get<Product[]>('/products', { 
       params: { 
@@ -363,80 +364,170 @@ export const productService = {
 
 // Servicio para categorías
 export const categoryService = {
-  getAll: (params = {}) => wooCommerceApi.get<Category[]>('/products/categories', { params }),
+  getAll: (params = {}) => wooCommerceApi.get<Category[]>('/products/categories', { 
+    params: { 
+      per_page: 100,  // Aumentar el número de categorías por página
+      ...params 
+    } 
+  }),
   getById: (id: number) => wooCommerceApi.get<Category>(`/products/categories/${id}`),
+  getBySlug: (slug: string) => {
+    // Intentar primero con el endpoint personalizado que maneja slugs normalizados
+    return axios.get<Category[]>(`/wp-json/floresinc/v1/product-categories`, { 
+      params: { slug }
+    }).catch(error => {
+      console.error('Error al obtener categoría por slug con endpoint personalizado:', error);
+      
+      // Si falla, intentar con el endpoint estándar de WooCommerce
+      return wooCommerceApi.get<Category[]>('/products/categories', { 
+        params: { slug }
+      });
+    });
+  },
 };
 
 // Servicio de carrito
 export const cartService = {
   // Obtener los items del carrito
   getItems() {
-    const cartItems = localStorage.getItem('cart_items');
-    return cartItems ? JSON.parse(cartItems) : [];
+    try {
+      const cartItems = localStorage.getItem('cart_items');
+      if (!cartItems) return [];
+      
+      // Parsear los items del carrito
+      const parsedItems = JSON.parse(cartItems);
+      
+      // Asegurarse de que cada item tenga la estructura correcta { product: {...}, quantity: number }
+      return parsedItems.map((item: any) => {
+        // Si ya tiene la estructura correcta, devolverlo tal cual
+        if (item.product && typeof item.quantity === 'number') {
+          return item;
+        }
+        
+        // Si tiene la estructura antigua, convertirlo al nuevo formato
+        if (item.id) {
+          return {
+            product: {
+              id: item.id,
+              name: item.name,
+              price: item.price,
+              images: item.image ? [{ src: item.image }] : [],
+              short_description: ''
+            },
+            quantity: item.quantity || 1
+          };
+        }
+        
+        // Si no tiene una estructura reconocible, ignorarlo
+        return null;
+      }).filter(Boolean); // Eliminar los items nulos
+    } catch (error) {
+      console.error('Error al obtener los items del carrito:', error);
+      return [];
+    }
   },
 
   // Añadir un item al carrito
   addItem(product: any, quantity: number = 1) {
-    const cartItems = this.getItems();
-    const existingItemIndex = cartItems.findIndex((item: any) => item.id === product.id);
+    try {
+      const cartItems = this.getItems();
+      const existingItemIndex = cartItems.findIndex((item: any) => 
+        item.product && item.product.id === product.id
+      );
 
-    if (existingItemIndex >= 0) {
-      cartItems[existingItemIndex].quantity += quantity;
-    } else {
-      cartItems.push({
-        id: product.id,
-        name: product.name,
-        price: product.price,
-        image: product.images && product.images.length > 0 ? product.images[0].src : '',
-        quantity
-      });
+      if (existingItemIndex >= 0) {
+        cartItems[existingItemIndex].quantity += quantity;
+      } else {
+        cartItems.push({
+          product: {
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            images: product.images || [],
+            short_description: product.short_description || ''
+          },
+          quantity
+        });
+      }
+
+      localStorage.setItem('cart_items', JSON.stringify(cartItems));
+      return cartItems;
+    } catch (error) {
+      console.error('Error al añadir item al carrito:', error);
+      return this.getItems();
     }
-
-    localStorage.setItem('cart_items', JSON.stringify(cartItems));
-    return cartItems;
   },
 
   // Actualizar la cantidad de un item
   updateItemQuantity(productId: number, quantity: number) {
-    const cartItems = this.getItems();
-    const itemIndex = cartItems.findIndex((item: any) => item.id === productId);
+    try {
+      const cartItems = this.getItems();
+      const itemIndex = cartItems.findIndex((item: any) => 
+        item.product && item.product.id === productId
+      );
 
-    if (itemIndex >= 0) {
-      if (quantity <= 0) {
-        cartItems.splice(itemIndex, 1);
-      } else {
-        cartItems[itemIndex].quantity = quantity;
+      if (itemIndex >= 0) {
+        if (quantity <= 0) {
+          cartItems.splice(itemIndex, 1);
+        } else {
+          cartItems[itemIndex].quantity = quantity;
+        }
+        localStorage.setItem('cart_items', JSON.stringify(cartItems));
       }
-      localStorage.setItem('cart_items', JSON.stringify(cartItems));
-    }
 
-    return cartItems;
+      return cartItems;
+    } catch (error) {
+      console.error('Error al actualizar cantidad de item:', error);
+      return this.getItems();
+    }
   },
 
   // Eliminar un item del carrito
   removeItem(productId: number) {
-    const cartItems = this.getItems();
-    const updatedItems = cartItems.filter((item: any) => item.id !== productId);
-    localStorage.setItem('cart_items', JSON.stringify(updatedItems));
-    return updatedItems;
+    try {
+      const cartItems = this.getItems();
+      const updatedItems = cartItems.filter((item: any) => 
+        !(item.product && item.product.id === productId)
+      );
+      localStorage.setItem('cart_items', JSON.stringify(updatedItems));
+      return updatedItems;
+    } catch (error) {
+      console.error('Error al eliminar item del carrito:', error);
+      return this.getItems();
+    }
   },
 
   // Limpiar el carrito
   clearCart() {
-    localStorage.removeItem('cart_items');
-    return [];
+    try {
+      localStorage.removeItem('cart_items');
+      return [];
+    } catch (error) {
+      console.error('Error al limpiar carrito:', error);
+      return this.getItems();
+    }
   },
 
   // Obtener el número de items en el carrito
   getItemCount() {
-    const cartItems = this.getItems();
-    return cartItems.reduce((total: number, item: any) => total + item.quantity, 0);
+    try {
+      const cartItems = this.getItems();
+      return cartItems.reduce((total: number, item: any) => total + item.quantity, 0);
+    } catch (error) {
+      console.error('Error al obtener cantidad de items:', error);
+      return 0;
+    }
   },
 
   // Obtener el total del carrito
   getTotal() {
-    const cartItems = this.getItems();
-    return cartItems.reduce((total: number, item: any) => total + (item.price * item.quantity), 0);
+    try {
+      const cartItems = this.getItems();
+      return cartItems.reduce((total: number, item: any) => total + (item.product.price * item.quantity), 0);
+    } catch (error) {
+      console.error('Error al obtener total del carrito:', error);
+      return 0;
+    }
   }
 };
 

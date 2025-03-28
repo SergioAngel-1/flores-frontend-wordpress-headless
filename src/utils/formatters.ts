@@ -55,3 +55,26 @@ export const truncateText = (text: string, maxLength: number): string => {
   
   return text.substring(0, maxLength) + '...';
 };
+
+/**
+ * Genera un slug a partir de un nombre para usar en URLs
+ * @param name - Nombre a convertir en slug
+ * @returns Slug para URL
+ */
+export const generateSlug = (name: string): string => {
+  if (!name) return '';
+  
+  console.log('Generando slug para:', name);
+  
+  const slug = name
+    .toLowerCase()
+    .normalize('NFD') // Normaliza caracteres acentuados
+    .replace(/[\u0300-\u036f]/g, '') // Elimina diacríticos
+    .replace(/[^\w\s-]/g, '') // Elimina caracteres especiales
+    .replace(/\s+/g, '-') // Reemplaza espacios con guiones
+    .replace(/-+/g, '-') // Elimina guiones múltiples
+    .trim(); // Elimina espacios al inicio y final
+    
+  console.log('Slug generado:', slug);
+  return slug;
+};
