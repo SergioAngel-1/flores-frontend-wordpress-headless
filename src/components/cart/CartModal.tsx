@@ -1,14 +1,9 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { FiX, FiShoppingBag, FiTrash2, FiPlus, FiMinus } from 'react-icons/fi';
+import React, { useEffect, useState } from 'react';
+import { FiX, FiTrash2, FiPlus, FiMinus } from 'react-icons/fi';
 import { cartService } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
-import { Product } from '../../types/woocommerce';
+import { CartItem } from '../../types/woocommerce';
 import ScrollToTopLink from '../common/ScrollToTopLink';
-
-interface CartItem {
-  product: Product;
-  quantity: number;
-}
 
 interface CartModalProps {
   isOpen: boolean;
@@ -202,7 +197,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
             </ScrollToTopLink>
             <ScrollToTopLink 
               to="/checkout" 
-              className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-hover transition-colors hover:!text-white"
+              className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-hover transition-colors"
               onClick={onClose}
             >
               Finalizar compra

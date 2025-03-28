@@ -1,10 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { cartService } from '../services/api';
-import { CartItem } from '../services/api';
+import { cartService, orderService } from '../services/api';
+import { CartItem } from '../types/woocommerce';
+import { useAuth } from '../contexts/AuthContext';
+
+// Función para formatear precios en formato COP
+const formatPrice = (price: number): string => {
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: 'COP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(price);
+};
 
 const CheckoutPage = () => {
+  const { user, isAuthenticated } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -12,6 +24,8 @@ const CheckoutPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [orderId, setOrderId] = useState<number | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [isGift, setIsGift] = useState(false);
   const navigate = useNavigate();
 
   // Formulario
@@ -29,6 +43,10 @@ const CheckoutPage = () => {
     cardName: '',
     cardExpiry: '',
     cardCvc: '',
+    // Campos para cuando el pedido es un regalo
+    recipientFirstName: '',
+    recipientLastName: '',
+    recipientPhone: '',
   });
 
   // Cargar items del carrito
@@ -44,12 +62,50 @@ const CheckoutPage = () => {
       }
       
       setCartItems(items);
-      setTotal(cartService.getCartTotal());
+      setTotal(cartService.getTotal());
       setLoading(false);
     };
 
     loadCart();
   }, [navigate]);
+
+  // Cargar datos del usuario si está autenticado
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Asegurarse de que el email se establezca correctamente
+      console.log('Email del usuario:', user.email); // Para depuración
+      
+      setFormData(prev => ({
+        ...prev,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        email: user.email || '', // Asegurarse de que el email se establezca correctamente
+        phone: user.phone || '',
+      }));
+
+      // Si el usuario tiene una dirección predeterminada, seleccionarla
+      if (user.defaultAddress) {
+        setSelectedAddressId(user.defaultAddress.id);
+        setFormData(prev => ({
+          ...prev,
+          address: user.defaultAddress?.address || '',
+          city: user.defaultAddress?.city || '',
+          state: user.defaultAddress?.state || '',
+          postalCode: user.defaultAddress?.postalCode || '',
+        }));
+      } else if (user.addresses && user.addresses.length > 0) {
+        // Si no tiene dirección predeterminada pero tiene direcciones, seleccionar la primera
+        setSelectedAddressId(user.addresses[0].id);
+        setFormData(prev => ({
+          ...prev,
+          address: user.addresses[0].address || '',
+          city: user.addresses[0].city || '',
+          state: user.addresses[0].state || '',
+          postalCode: user.addresses[0].postalCode || '',
+        }));
+      }
+    }
+  }, [isAuthenticated, user]);
 
   // Animaciones con GSAP
   useEffect(() => {
@@ -78,6 +134,38 @@ const CheckoutPage = () => {
     }));
   };
 
+  const handleAddressSelect = (addressId: number) => {
+    setSelectedAddressId(addressId);
+    
+    // Encontrar la dirección seleccionada
+    const selectedAddress = user?.addresses.find(addr => addr.id === addressId);
+    
+    if (selectedAddress) {
+      // Actualizar los campos del formulario con la dirección seleccionada
+      setFormData(prev => ({
+        ...prev,
+        address: selectedAddress.address,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        postalCode: selectedAddress.postalCode,
+      }));
+    }
+  };
+
+  const handleGiftToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsGift(e.target.checked);
+    
+    // Si se desmarca la opción, limpiar los campos del destinatario
+    if (!e.target.checked) {
+      setFormData(prev => ({
+        ...prev,
+        recipientFirstName: '',
+        recipientLastName: '',
+        recipientPhone: '',
+      }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -87,24 +175,61 @@ const CheckoutPage = () => {
       return;
     }
     
+    // Validar campos del destinatario si es un regalo
+    if (isGift && (!formData.recipientFirstName || !formData.recipientLastName || !formData.recipientPhone)) {
+      setError('Por favor, completa todos los campos del destinatario');
+      return;
+    }
+    
     setSubmitting(true);
     setError(null);
     
     try {
-      // Crear líneas de pedido - Comentado para evitar advertencia de linting
-      // const line_items = cartItems.map(item => ({
-      //   product_id: item.product.id,
-      //   quantity: item.quantity
-      // }));
+      // Crear líneas de pedido
+      const line_items = cartItems.map(item => ({
+        product_id: item.product.id,
+        quantity: item.quantity
+      }));
       
-      // En un entorno real, enviaríamos el pedido a WooCommerce
-      // const response = await orderService.createOrder(orderData);
-      // const newOrderId = response.data.id;
+      // Crear el objeto de datos del pedido
+      const orderData = {
+        payment_method: formData.paymentMethod,
+        payment_method_title: formData.paymentMethod === 'card' ? 'Tarjeta de crédito' : 'Transferencia bancaria',
+        set_paid: formData.paymentMethod === 'card' ? true : false,
+        billing: {
+          first_name: isGift ? formData.firstName : (formData.recipientFirstName || formData.firstName),
+          last_name: isGift ? formData.lastName : (formData.recipientLastName || formData.lastName),
+          address_1: formData.address,
+          city: formData.city,
+          state: formData.state,
+          postcode: formData.postalCode,
+          country: 'CO',
+          email: formData.email,
+          phone: isGift ? formData.phone : (formData.recipientPhone || formData.phone),
+        },
+        shipping: {
+          first_name: isGift ? formData.firstName : (formData.recipientFirstName || formData.firstName),
+          last_name: isGift ? formData.lastName : (formData.recipientLastName || formData.lastName),
+          address_1: formData.address,
+          city: formData.city,
+          state: formData.state,
+          postcode: formData.postalCode,
+          country: 'CO',
+        },
+        line_items,
+        customer_id: user?.id || 0,
+        customer_note: isGift ? "Este pedido es un regalo" : "",
+      };
       
-      // Simulamos un tiempo de procesamiento y una respuesta
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const mockOrderId = Math.floor(Math.random() * 10000) + 1000;
-      setOrderId(mockOrderId);
+      console.log('Enviando pedido a WooCommerce:', orderData);
+      
+      // Enviar el pedido a WooCommerce
+      const response = await orderService.createOrder(orderData);
+      console.log('Respuesta de WooCommerce:', response.data);
+      
+      // Guardar el ID del pedido
+      const newOrderId = response.data.id;
+      setOrderId(newOrderId);
       
       // Vaciar el carrito
       cartService.clearCart();
@@ -190,95 +315,154 @@ const CheckoutPage = () => {
           <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-medium text-oscuro mb-6 checkout-animate">Información de contacto</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 checkout-animate">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="firstName"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
-                  required
-                />
+            {isAuthenticated ? (
+              <div className="mb-6 checkout-animate">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-gray-700 font-medium">{user?.firstName} {user?.lastName}</p>
+                    <p className="text-gray-600">{user?.email}</p>
+                    {user?.phone && <p className="text-gray-600">{user?.phone}</p>}
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="isGift"
+                      checked={isGift}
+                      onChange={handleGiftToggle}
+                      className="h-4 w-4 text-primario border-gray-300 rounded focus:ring-primario"
+                    />
+                    <label htmlFor="isGift" className="ml-2 block text-sm text-gray-700">
+                      El pedido no es para mí
+                    </label>
+                  </div>
+                </div>
+                
+                {!isGift ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                        Nombre
+                      </label>
+                      <input
+                        type="text"
+                        id="firstName"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none"
+                        disabled
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                        Apellido
+                      </label>
+                      <input
+                        type="text"
+                        id="lastName"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none"
+                        disabled
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none"
+                        disabled
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Teléfono
+                      </label>
+                      <input
+                        type="tel"
+                        id="phone"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 focus:outline-none"
+                        disabled
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-gray-50 p-4 rounded-md">
+                    <h3 className="text-md font-medium text-gray-700 mb-3">Información del destinatario</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="recipientFirstName" className="block text-sm font-medium text-gray-700 mb-1">
+                          Nombre <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="recipientFirstName"
+                          name="recipientFirstName"
+                          value={formData.recipientFirstName}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                          required={isGift}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="recipientLastName" className="block text-sm font-medium text-gray-700 mb-1">
+                          Apellido <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="recipientLastName"
+                          name="recipientLastName"
+                          value={formData.recipientLastName}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                          required={isGift}
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label htmlFor="recipientPhone" className="block text-sm font-medium text-gray-700 mb-1">
+                          Teléfono <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          id="recipientPhone"
+                          name="recipientPhone"
+                          value={formData.recipientPhone}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                          required={isGift}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Apellido <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="lastName"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                  Teléfono
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
-                />
-              </div>
-            </div>
-            
-            <h2 className="text-xl font-medium text-oscuro mb-6 checkout-animate">Dirección de envío</h2>
-            
-            <div className="grid grid-cols-1 gap-6 mb-8 checkout-animate">
-              <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                  Dirección <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="address"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 checkout-animate">
                 <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                    Ciudad <span className="text-red-500">*</span>
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    id="city"
-                    name="city"
-                    value={formData.city}
+                    id="firstName"
+                    name="firstName"
+                    value={formData.firstName}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
                     required
@@ -286,36 +470,159 @@ const CheckoutPage = () => {
                 </div>
                 
                 <div>
-                  <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2">
-                    Estado <span className="text-red-500">*</span>
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                    Apellido <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
-                    id="state"
-                    name="state"
-                    value={formData.state}
+                    id="lastName"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Teléfono
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <h2 className="text-xl font-medium text-oscuro mb-6 checkout-animate">Dirección de envío</h2>
+            
+            {isAuthenticated && user?.addresses && user.addresses.length > 0 ? (
+              <div className="mb-8 checkout-animate">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {user.addresses.map((address) => (
+                    <div
+                      key={address.id}
+                      className={`border cursor-pointer ${
+                        selectedAddressId === address.id
+                          ? 'border-primario bg-primario/5'
+                          : 'border-gray-200 hover:border-primario/50'
+                      } rounded-md p-4 relative transition-all duration-200`}
+                      onClick={() => handleAddressSelect(address.id)}
+                    >
+                      {address.isDefault && (
+                        <span className="absolute top-2 right-2 bg-primario text-white text-xs px-2 py-1 rounded-full">
+                          Predeterminada
+                        </span>
+                      )}
+                      <div>
+                        <h5 className="font-medium text-gray-900">{address.name}</h5>
+                        <p className="text-gray-600 mt-1">{address.address}</p>
+                        <p className="text-gray-600">
+                          {address.city}, {address.state} {address.postalCode}
+                        </p>
+                        <p className="text-gray-600">{address.country}</p>
+                        <p className="text-gray-600 mt-1">Tel: {address.phone}</p>
+                      </div>
+                      
+                      {selectedAddressId === address.id && (
+                        <div className="absolute top-2 left-2">
+                          <div className="h-5 w-5 bg-primario rounded-full flex items-center justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 mb-8 checkout-animate">
+                <div>
+                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
+                    Dirección <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="address"
+                    name="address"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                    required
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
+                      Ciudad <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="city"
+                      name="city"
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-2">
+                      Estado <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="state"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
+                    Código Postal <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    id="postalCode"
+                    name="postalCode"
+                    value={formData.postalCode}
                     onChange={handleInputChange}
                     className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
                     required
                   />
                 </div>
               </div>
-              
-              <div>
-                <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
-                  Código Postal <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  id="postalCode"
-                  name="postalCode"
-                  value={formData.postalCode}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primario"
-                  required
-                />
-              </div>
-            </div>
+            )}
             
             <h2 className="text-xl font-medium text-oscuro mb-6 checkout-animate">Método de pago</h2>
             
@@ -447,8 +754,8 @@ const CheckoutPage = () => {
         </div>
         
         {/* Resumen del pedido */}
-        <div className="checkout-animate">
-          <div className="bg-white rounded-lg shadow-md p-6 sticky top-24">
+        <div className="checkout-animate" style={{position: 'sticky', top: '6rem', alignSelf: 'flex-start', maxHeight: 'calc(100vh - 8rem)', overflowY: 'auto'}}>
+          <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-lg font-medium text-oscuro mb-4">Resumen del pedido</h2>
             
             <div className="max-h-80 overflow-y-auto mb-4">
@@ -467,11 +774,11 @@ const CheckoutPage = () => {
                   <div className="ml-4 flex-1">
                     <h3 className="text-sm font-medium text-oscuro">{item.product.name}</h3>
                     <p className="text-sm text-gray-500">
-                      {item.quantity} x ${parseFloat(item.product.price).toFixed(2)}
+                      {item.quantity} x {formatPrice(parseFloat(item.product.price) * item.quantity)}
                     </p>
                   </div>
                   <div className="text-sm font-medium text-gray-900">
-                    ${(parseFloat(item.product.price) * item.quantity).toFixed(2)}
+                    {formatPrice(parseFloat(item.product.price) * item.quantity)}
                   </div>
                 </div>
               ))}
@@ -480,17 +787,17 @@ const CheckoutPage = () => {
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
-                <span>${total.toFixed(2)}</span>
+                <span>{formatPrice(total)}</span>
               </div>
               
               <div className="flex justify-between text-sm">
                 <span>Envío</span>
-                <span>$100.00</span>
+                <span>{formatPrice(0)}</span>
               </div>
               
               <div className="flex justify-between font-semibold text-lg pt-3 border-t border-gray-200">
                 <span>Total</span>
-                <span className="text-primario">${(total + 100).toFixed(2)}</span>
+                <span className="text-primario">{formatPrice(total)}</span>
               </div>
             </div>
           </div>

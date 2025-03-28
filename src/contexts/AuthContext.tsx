@@ -314,15 +314,71 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
       
+      console.log('Datos enviados a la API:', profileData); // Depuración
+      
+      // Usar el endpoint correcto que está registrado en user-profile-functions.php
       const response = await axios.post(`${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/user/profile`, profileData);
       
+      console.log('Respuesta del servidor:', response.data); // Depuración
+      
       if (response.data.success) {
-        // Actualizar el usuario con los datos actualizados
-        setUser(prev => {
-          if (!prev) return null;
-          
-          return { ...prev, ...profileData };
-        });
+        // Si el servidor devuelve los datos del usuario, usarlos directamente
+        if (response.data.user) {
+          setUser(prev => {
+            if (!prev) return null;
+            
+            console.log('Actualizando usuario con datos del servidor:', response.data.user); // Depuración
+            
+            return {
+              ...prev,
+              firstName: response.data.user.firstName,
+              lastName: response.data.user.lastName,
+              email: response.data.user.email,
+              phone: response.data.user.phone,
+              birthDate: response.data.user.birthDate,
+              gender: response.data.user.gender,
+              newsletter: response.data.user.newsletter,
+              active: response.data.user.active
+            };
+          });
+        } else {
+          // Si no hay datos del usuario en la respuesta, intentar recargar
+          try {
+            const userResponse = await axios.get(`${import.meta.env.VITE_WP_API_URL}/wp-json/wp/v2/users/me`);
+            
+            if (userResponse.data) {
+              setUser({
+                id: userResponse.data.id,
+                name: userResponse.data.name,
+                email: userResponse.data.email,
+                avatar: userResponse.data.avatar_urls?.['96'] || '',
+                addresses: userResponse.data.addresses || [],
+                defaultAddress: userResponse.data.defaultAddress || null,
+                pending: userResponse.data.pending || false,
+                firstName: userResponse.data.firstName || '',
+                lastName: userResponse.data.lastName || '',
+                phone: userResponse.data.phone || '',
+                birthDate: userResponse.data.birthDate || '',
+                gender: userResponse.data.gender || '',
+                newsletter: userResponse.data.newsletter || false,
+                active: userResponse.data.active || false
+              });
+            } else {
+              // Si no podemos recargar los datos, al menos actualizamos con lo que enviamos
+              setUser(prev => {
+                if (!prev) return null;
+                return { ...prev, ...profileData };
+              });
+            }
+          } catch (error) {
+            console.error('Error al recargar datos del usuario:', error);
+            // Si falla la recarga, actualizamos con los datos enviados
+            setUser(prev => {
+              if (!prev) return null;
+              return { ...prev, ...profileData };
+            });
+          }
+        }
       } else {
         throw new Error('Error al actualizar el perfil');
       }

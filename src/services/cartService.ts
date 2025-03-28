@@ -1,12 +1,4 @@
-import { Product } from '../types/woocommerce';
-
-export interface CartItem {
-  id: number;
-  quantity: number;
-  product: Product;
-  variation_id?: number;
-  variation?: any;
-}
+import { Product, CartItem } from '../types/woocommerce';
 
 // Servicio de carrito
 const cartService = {

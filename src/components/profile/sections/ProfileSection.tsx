@@ -16,6 +16,23 @@ const ProfileSection = () => {
   });
   const [isEditing, setIsEditing] = useState(false);
 
+  // Actualizar el formulario cuando cambie el usuario
+  useEffect(() => {
+    if (user) {
+      console.log('Actualizando formData con datos del usuario:', user);
+      setFormData(prev => ({
+        ...prev,
+        firstName: user.firstName || prev.firstName,
+        lastName: user.lastName || prev.lastName,
+        email: user.email || prev.email,
+        phone: user.phone || prev.phone,
+        birthDate: user.birthDate || prev.birthDate,
+        gender: user.gender || prev.gender,
+        newsletter: user.newsletter || prev.newsletter
+      }));
+    }
+  }, [user]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
     setFormData({
@@ -47,6 +64,8 @@ const ProfileSection = () => {
     e.preventDefault();
     
     try {
+      console.log('Enviando datos de perfil:', formData); // Depuración
+      
       // Verificar si es menor de edad
       if (!formData.isAdult) {
         // Mostrar advertencia

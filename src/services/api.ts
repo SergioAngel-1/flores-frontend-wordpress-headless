@@ -533,16 +533,32 @@ export const cartService = {
 
 // Servicio para pedidos
 export const orderService = {
-  createOrder: (orderData: any) => 
-    wooCommerceApi.post('/orders', orderData),
+  // Crear un nuevo pedido en WooCommerce
+  createOrder(orderData: any) {
+    console.log('Creando pedido en WooCommerce:', orderData);
+    return wooCommerceApi.post('/orders', orderData);
+  },
   
-  getOrderById: (id: number) => 
-    wooCommerceApi.get(`/orders/${id}`),
+  // Obtener un pedido por su ID
+  getOrderById(id: number) {
+    return wooCommerceApi.get(`/orders/${id}`);
+  },
   
-  getCustomerOrders: (customerId: number) => 
-    wooCommerceApi.get('/orders', { 
-      params: { customer: customerId } 
-    }),
+  // Obtener los pedidos de un cliente
+  getCustomerOrders(customerId: number) {
+    return wooCommerceApi.get('/orders', {
+      params: {
+        customer: customerId
+      }
+    });
+  },
+  
+  // Actualizar el estado de un pedido
+  updateOrderStatus(orderId: number, status: string) {
+    return wooCommerceApi.put(`/orders/${orderId}`, {
+      status: status
+    });
+  }
 };
 
 export default {
