@@ -49,6 +49,7 @@ interface AuthContextType {
   setShowLoginModal: (show: boolean) => void;
   showRegisterModal: boolean;
   setShowRegisterModal: (show: boolean) => void;
+  getCurrentUser: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,16 +90,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const response = await axios.get(`${import.meta.env.VITE_WP_API_URL}/wp-json/wp/v2/users/me`);
           
           if (response.data) {
+            console.log('Datos del usuario obtenidos:', response.data); // Depuración
+            
             setUser({
               id: response.data.id,
               name: response.data.name,
-              email: response.data.email,
+              email: response.data.email || '', // Asegurarse de que el email no sea undefined
               avatar: response.data.avatar_urls?.['96'] || '',
               addresses: response.data.addresses || [],
               defaultAddress: response.data.defaultAddress || null,
               pending: response.data.pending || false,
-              firstName: response.data.firstName || '',
-              lastName: response.data.lastName || '',
+              firstName: response.data.first_name || response.data.firstName || '',
+              lastName: response.data.last_name || response.data.lastName || '',
               phone: response.data.phone || '',
               birthDate: response.data.birthDate || '',
               gender: response.data.gender || '',
@@ -146,8 +149,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           addresses: userResponse.data.addresses || [],
           defaultAddress: userResponse.data.defaultAddress || null,
           pending: userResponse.data.pending || false,
-          firstName: userResponse.data.firstName || '',
-          lastName: userResponse.data.lastName || '',
+          firstName: userResponse.data.first_name || userResponse.data.firstName || '',
+          lastName: userResponse.data.last_name || userResponse.data.lastName || '',
           phone: userResponse.data.phone || '',
           birthDate: userResponse.data.birthDate || '',
           gender: userResponse.data.gender || '',
@@ -355,8 +358,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 addresses: userResponse.data.addresses || [],
                 defaultAddress: userResponse.data.defaultAddress || null,
                 pending: userResponse.data.pending || false,
-                firstName: userResponse.data.firstName || '',
-                lastName: userResponse.data.lastName || '',
+                firstName: userResponse.data.first_name || userResponse.data.firstName || '',
+                lastName: userResponse.data.last_name || userResponse.data.lastName || '',
                 phone: userResponse.data.phone || '',
                 birthDate: userResponse.data.birthDate || '',
                 gender: userResponse.data.gender || '',
@@ -391,6 +394,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const getCurrentUser = async (): Promise<User | null> => {
+    try {
+      const token = localStorage.getItem('authToken');
+      
+      if (!token) {
+        return null;
+      }
+      
+      // Configurar el token en los headers
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Obtener datos del usuario
+      const response = await axios.get(`${import.meta.env.VITE_WP_API_URL}/wp-json/wp/v2/users/me`);
+      
+      if (response.data) {
+        // Log para depuración
+        console.log('Datos del usuario obtenidos en getCurrentUser:', response.data);
+        console.log('Email recibido:', response.data.email);
+        
+        // Crear objeto de usuario con los datos recibidos
+        const user: User = {
+          id: response.data.id,
+          name: response.data.name,
+          email: response.data.email || '', // Asegurarse de que el email nunca sea undefined
+          avatar: response.data.avatar_urls?.['96'] || '',
+          addresses: response.data.addresses || [],
+          defaultAddress: response.data.defaultAddress || null,
+          pending: response.data.pending || false,
+          firstName: response.data.first_name || response.data.firstName || '',
+          lastName: response.data.last_name || response.data.lastName || '',
+          phone: response.data.phone || '',
+          birthDate: response.data.birthDate || '',
+          gender: response.data.gender || '',
+          newsletter: response.data.newsletter || false,
+          active: response.data.active || false
+        };
+        
+        // Actualizar el estado del usuario
+        setUser(user);
+        
+        return user;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error al obtener datos del usuario:', error);
+      return null;
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -409,7 +462,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         showLoginModal,
         setShowLoginModal,
         showRegisterModal,
-        setShowRegisterModal
+        setShowRegisterModal,
+        getCurrentUser
       }}
     >
       {children}

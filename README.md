@@ -7,9 +7,13 @@ Frontend moderno para la tienda en línea de Flores INC, desarrollado con React,
 - Diseño moderno y responsive con Tailwind CSS
 - Animaciones fluidas con GSAP
 - Integración con API de WooCommerce
-- Gestión de estado con React Hooks
+- Gestión de estado con React Hooks y Context API
 - Tipado estático con TypeScript
 - Rutas con React Router
+- Carrito de compras con persistencia en localStorage
+- Gestión de perfil de usuario y direcciones
+- Sistema de autenticación integrado con WordPress
+- Checkout completo con integración a WooCommerce
 
 ## Requisitos Previos
 
@@ -54,25 +58,55 @@ src/
 ├── components/        # Componentes reutilizables
 │   ├── layout/        # Componentes de estructura (Header, Footer, Layout)
 │   ├── ui/            # Componentes de interfaz (botones, formularios, etc.)
-│   └── ...
+│   ├── cart/          # Componentes relacionados con el carrito
+│   ├── profile/       # Componentes de perfil de usuario
+│   └── products/      # Componentes de productos y categorías
+├── contexts/          # Contextos de React (AuthContext, CartContext)
 ├── hooks/             # Custom hooks
 ├── pages/             # Páginas de la aplicación
 ├── services/          # Servicios para API y lógica de negocio
 ├── types/             # Definiciones de tipos TypeScript
 ├── utils/             # Utilidades y funciones auxiliares
+├── assets/            # Recursos estáticos (imágenes, fuentes, etc.)
 ├── App.tsx            # Componente principal
 └── main.tsx           # Punto de entrada
 ```
+
+## Principales Componentes
+
+### Autenticación y Perfil
+
+- `AuthContext`: Gestiona el estado de autenticación del usuario
+- `ProfileModal`: Modal para gestionar el perfil del usuario
+- `ProfileSection`: Sección para editar información personal
+- `AddressesSection`: Gestión de direcciones del usuario
+- `OrdersSection`: Historial de pedidos del usuario
+
+### Carrito y Checkout
+
+- `CartModal`: Modal del carrito de compras
+- `AddToCartButton`: Botón para añadir productos al carrito
+- `CheckoutPage`: Página de proceso de pago
+- `CartService`: Servicio para gestionar el carrito en localStorage
+
+### Productos y Catálogo
+
+- `ProductCard`: Tarjeta de producto para listados
+- `ProductDetailPage`: Página de detalle de producto
+- `CategoryPage`: Página de categoría de productos
+- `RelatedProducts`: Componente de productos relacionados
 
 ## Rutas Disponibles
 
 - `/` - Página de inicio
 - `/tienda` - Catálogo de productos
 - `/categoria/:slug` - Productos por categoría
-- `/producto/:id` - Detalle de producto
+- `/producto/:slug` - Detalle de producto
 - `/carrito` - Carrito de compras
 - `/checkout` - Proceso de pago
-- `/api-test` - Página de prueba de conexión a la API
+- `/contacto` - Página de contacto
+- `/blog` - Blog de la tienda
+- `/legal/:page` - Páginas legales (términos, privacidad, etc.)
 
 ## Integración con WooCommerce
 
@@ -80,6 +114,23 @@ El proyecto utiliza la API REST de WooCommerce para:
 - Obtener productos y categorías
 - Gestionar el carrito de compras
 - Procesar pedidos
+- Autenticación de usuarios
+- Gestión de perfiles y direcciones
+
+### Servicios API
+
+- `productService`: Gestión de productos
+- `categoryService`: Gestión de categorías
+- `cartService`: Gestión del carrito
+- `orderService`: Gestión de pedidos
+- `authService`: Autenticación y gestión de usuarios
+
+## Estilos y Diseño
+
+- Uso de Tailwind CSS para estilos responsive
+- Variables CSS personalizadas para colores de marca
+- Animaciones con GSAP para transiciones fluidas
+- Diseño adaptable a móviles, tablets y escritorio
 
 ## Desarrollo
 

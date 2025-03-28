@@ -73,14 +73,27 @@ const CheckoutPage = () => {
   useEffect(() => {
     if (isAuthenticated && user) {
       // Asegurarse de que el email se establezca correctamente
-      console.log('Email del usuario:', user.email); // Para depuración
+      console.log('Email del usuario en CheckoutPage:', user.email); // Para depuración
+      
+      // Asegurarse de que todos los campos del usuario estén definidos
+      const userEmail = user.email || '';
+      const userFirstName = user.firstName || '';
+      const userLastName = user.lastName || '';
+      const userPhone = user.phone || '';
+      
+      console.log('Datos del usuario para inicializar formulario:', {
+        email: userEmail,
+        firstName: userFirstName,
+        lastName: userLastName,
+        phone: userPhone
+      });
       
       setFormData(prev => ({
         ...prev,
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
-        email: user.email || '', // Asegurarse de que el email se establezca correctamente
-        phone: user.phone || '',
+        firstName: userFirstName,
+        lastName: userLastName,
+        email: userEmail,
+        phone: userPhone,
       }));
 
       // Si el usuario tiene una dirección predeterminada, seleccionarla

@@ -3,7 +3,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import alertService from '../../../services/alertService';
 
 const ProfileSection = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, getCurrentUser } = useAuth();
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -20,6 +20,8 @@ const ProfileSection = () => {
   useEffect(() => {
     if (user) {
       console.log('Actualizando formData con datos del usuario:', user);
+      console.log('Email del usuario:', user.email); // Depuración adicional para el email
+      
       setFormData(prev => ({
         ...prev,
         firstName: user.firstName || prev.firstName,
@@ -63,38 +65,55 @@ const ProfileSection = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    try {
-      console.log('Enviando datos de perfil:', formData); // Depuración
-      
-      // Verificar si es menor de edad
-      if (!formData.isAdult) {
-        // Mostrar advertencia
-        alertService.confirm(
-          'Has indicado que eres menor de 18 años. Tu cuenta será desactivada ya que nuestro servicio es solo para mayores de edad. ¿Deseas continuar?',
-          async () => {
+    // Validación para menor de edad
+    if (!formData.isAdult) {
+      alertService.confirm(
+        'Si eres menor de edad, tu cuenta será desactivada y no podrás realizar compras.',
+        async () => {
+          try {
+            console.log('Actualizando perfil (menor de edad):', formData);
+            
             // Actualizar perfil con estado inactivo
             await updateProfile({
               ...formData,
               active: false
             });
-            alertService.warning('Tu cuenta ha sido desactivada por ser menor de edad.');
+            
+            // Recargar los datos del usuario para asegurar que se actualicen correctamente
+            await getCurrentUser();
+            
+            // Mostrar mensaje de éxito
+            alertService.success('Tu perfil ha sido actualizado. Tu cuenta ha sido desactivada por ser menor de edad.');
+            
+            // Desactivar modo de edición
             setIsEditing(false);
-          },
-          () => {
-            // El usuario canceló, no hacer nada
+          } catch (error) {
+            alertService.error('No se pudo actualizar el perfil. Por favor, inténtalo de nuevo.');
           }
-        );
-      } else {
-        // Usuario mayor de edad, actualizar perfil normalmente
+        }
+      );
+    } else {
+      try {
+        // Log para depuración
+        console.log('Enviando datos de perfil para actualizar:', formData);
+        
+        // Actualizar perfil
         await updateProfile({
           ...formData,
           active: true
         });
-        alertService.success('Perfil actualizado correctamente');
+        
+        // Recargar los datos del usuario para asegurar que se actualicen correctamente
+        await getCurrentUser();
+        
+        // Mostrar mensaje de éxito
+        alertService.success('Tu perfil ha sido actualizado correctamente.');
+        
+        // Desactivar modo de edición
         setIsEditing(false);
+      } catch (error) {
+        alertService.error('No se pudo actualizar el perfil. Por favor, inténtalo de nuevo.');
       }
-    } catch (error: any) {
-      alertService.error(error.message || 'Error al actualizar el perfil');
     }
   };
 
@@ -152,7 +171,7 @@ const ProfileSection = () => {
                 required
               />
             ) : (
-              <p className="text-gray-900">{formData.email || 'No especificado'}</p>
+              <p className="text-gray-900" data-component-name="ProfileSection">{formData.email || 'No especificado'}</p>
             )}
           </div>
 
@@ -212,61 +231,65 @@ const ProfileSection = () => {
                 <option value="male">Masculino</option>
                 <option value="female">Femenino</option>
                 <option value="other">Otro</option>
+                <option value="prefer_not_to_say">Prefiero no decir</option>
               </select>
             ) : (
               <p className="text-gray-900">
-                {formData.gender === 'male' ? 'Masculino' : 
-                 formData.gender === 'female' ? 'Femenino' : 
-                 formData.gender === 'other' ? 'Otro' : 'No especificado'}
+                {formData.gender === 'male' ? 'Masculino' :
+                 formData.gender === 'female' ? 'Femenino' :
+                 formData.gender === 'other' ? 'Otro' :
+                 formData.gender === 'prefer_not_to_say' ? 'Prefiero no decir' :
+                 'No especificado'}
               </p>
             )}
           </div>
 
-          <div className="col-span-2">
-            <div className="flex items-center">
-              {isEditing ? (
+          <div className="md:col-span-2">
+            {isEditing ? (
+              <div className="flex items-center mt-2">
                 <input
                   type="checkbox"
+                  id="newsletter"
                   name="newsletter"
                   checked={formData.newsletter}
                   onChange={handleChange}
                   className="h-4 w-4 text-primario focus:ring-primario border-gray-300 rounded"
                 />
-              ) : (
-                <div className={`h-4 w-4 border rounded ${formData.newsletter ? 'bg-primario' : 'bg-white'}`}></div>
-              )}
-              <label className="ml-2 block text-sm text-gray-700">
-                Quiero recibir el boletín informativo con promociones
-              </label>
-            </div>
+                <label htmlFor="newsletter" className="ml-2 block text-sm text-gray-700">
+                  Suscribirme al boletín de noticias
+                </label>
+              </div>
+            ) : (
+              <div className="mt-2">
+                <span className="text-sm font-medium text-gray-700">Suscripción al boletín:</span>
+                <span className="ml-2 text-gray-900">{formData.newsletter ? 'Suscrito' : 'No suscrito'}</span>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="mt-8 flex justify-end">
           {isEditing ? (
-            <>
+            <div className="flex space-x-3">
               <button
                 type="button"
+                className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primario"
                 onClick={() => setIsEditing(false)}
-                className="mr-3 px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-                style={{ backgroundColor: 'white', borderColor: '#e5e7eb' }}
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover"
-                style={{ borderColor: 'transparent' }}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primario"
               >
-                Guardar
+                Guardar cambios
               </button>
-            </>
+            </div>
           ) : (
             <button
               type="button"
+              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primario"
               onClick={() => setIsEditing(true)}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-hover"
-              style={{ borderColor: 'transparent' }}
             >
               Editar perfil
             </button>

@@ -216,7 +216,7 @@ const ProductDetailPage = () => {
           </div>
           
           <div 
-            className="mb-6 text-texto product-animate prose prose-sm max-w-none"
+            className="mb-6 text-texto product-animate prose prose-sm max-w-none max-h-[200px] overflow-y-auto pr-2 custom-scrollbar"
             dangerouslySetInnerHTML={{ __html: product.description }}
           />
           
