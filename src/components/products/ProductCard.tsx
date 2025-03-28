@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Product } from '../../types/woocommerce';
 import { cartService } from '../../services/api';
 import { FiPlus, FiMinus } from 'react-icons/fi';
+import { formatCurrency, generateSlug } from '../../utils/formatters';
+import alertService from '../../services/alertService';
 
 interface ProductCardProps {
   product: Product;
@@ -38,6 +40,9 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
     cartService.addItem(product);
     setQuantity(prev => prev + 1);
     
+    // Mostrar alerta de producto añadido
+    alertService.success(`${product.name} añadido al carrito`);
+    
     // Disparar evento personalizado para actualizar el contador del carrito
     window.dispatchEvent(new CustomEvent('cart-updated'));
   };
@@ -46,9 +51,15 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
     if (newQuantity <= 0) {
       cartService.removeItem(product.id);
       setQuantity(0);
+      alertService.info(`${product.name} eliminado del carrito`);
     } else {
       cartService.updateItemQuantity(product.id, newQuantity);
       setQuantity(newQuantity);
+      
+      // Si estamos incrementando la cantidad, mostrar alerta
+      if (newQuantity > quantity) {
+        alertService.success(`${product.name} añadido al carrito`);
+      }
     }
     
     // Disparar evento personalizado para actualizar el contador del carrito
@@ -69,7 +80,7 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
       className={`${animationClass} bg-white border border-gray-200 rounded-lg overflow-hidden flex flex-col transition-all duration-300 ${className}`}
       style={cardStyle}
     >
-      <Link to={`/producto/${product.id}`} className="block">
+      <Link to={`/producto/${generateSlug(product.name)}`} className="block">
         {product.images && product.images.length > 0 ? (
           <img 
             src={product.images[0].src || undefined} 
@@ -85,7 +96,7 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
       </Link>
       
       <div className="p-3 flex flex-col flex-grow">
-        <Link to={`/producto/${product.id}`} className="hover:text-primario transition-colors">
+        <Link to={`/producto/${generateSlug(product.name)}`} className="hover:text-primario transition-colors">
           <h3 className="font-medium text-sm mb-1 text-oscuro line-clamp-2">
             {product.name}
           </h3>
@@ -93,7 +104,7 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
         
         <div className="mt-auto pt-2 flex justify-between items-center">
           <span className="text-primario font-bold">
-            {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(product.price) || 0)}
+            {formatCurrency(product.price)}
           </span>
           
           {quantity === 0 ? (
@@ -131,4 +142,13 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
   );
 };
 
-export default ProductCard;
+// Usar React.memo para evitar re-renderizados innecesarios
+export default memo(ProductCard, (prevProps, nextProps) => {
+  // Solo re-renderizar si cambia el producto o las clases
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.price === nextProps.product.price &&
+    prevProps.className === nextProps.className &&
+    prevProps.animationClass === nextProps.animationClass
+  );
+});

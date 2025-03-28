@@ -226,7 +226,21 @@ const HomePage = () => {
         });
 
         console.log('Categorías destacadas:', response.data);
-        setFeaturedCategories(response.data);
+        
+        // Transformar las categorías para asegurar que tengan slugs correctos
+        const processedCategories = response.data.map((category: any) => {
+          // Si el enlace es a WordPress, extraer solo el slug y usar el formato de React
+          if (category.link && category.link.includes('/product-category/')) {
+            const slug = category.slug || category.link.split('/product-category/')[1].split('/')[0];
+            return {
+              ...category,
+              slug: slug
+            };
+          }
+          return category;
+        });
+        
+        setFeaturedCategories(processedCategories);
         setFeaturedCategoriesError(null);
       } catch (error) {
         console.error('Error al cargar las categorías destacadas:', error);

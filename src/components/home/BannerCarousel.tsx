@@ -253,7 +253,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     intervalRef.current = setInterval(() => {
       console.log("Ejecución automática - avanzando al siguiente banner");
       nextBanner();
-    }, 5000);
+    }, 10000); // Cambiado de 5000 a 10000 ms (10 segundos)
 
     setAutoplay(true);
   }, [banners.length, nextBanner]);

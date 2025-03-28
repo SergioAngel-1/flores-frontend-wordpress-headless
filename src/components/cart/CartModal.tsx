@@ -1,13 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
+import { FiX, FiShoppingBag, FiTrash2, FiPlus, FiMinus } from 'react-icons/fi';
 import { cartService } from '../../services/api';
-import { FiX, FiTrash2, FiPlus, FiMinus } from 'react-icons/fi';
+import { formatCurrency } from '../../utils/formatters';
+import { Product } from '../../types/woocommerce';
+import ScrollToTopLink from '../common/ScrollToTopLink';
 
 interface CartItem {
-  id: number;
-  name: string;
-  price: string;
-  image: string;
+  product: Product;
   quantity: number;
 }
 
@@ -38,9 +37,31 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   }, []);
 
   const loadCartItems = () => {
-    const items = cartService.getItems();
-    setCartItems(items);
-    setTotal(cartService.getTotal());
+    try {
+      const items = cartService.getItems();
+      console.log('CartModal: Items cargados:', items);
+      
+      if (items && Array.isArray(items)) {
+        // Filtrar items inválidos (sin producto o sin datos completos)
+        const validItems = items.filter(item => 
+          item && 
+          item.product && 
+          item.product.id && 
+          item.product.name
+        );
+        
+        setCartItems(validItems);
+      } else {
+        console.error('CartModal: Formato de items inválido:', items);
+        setCartItems([]);
+      }
+      
+      setTotal(cartService.getTotal());
+    } catch (error) {
+      console.error('CartModal: Error al cargar items:', error);
+      setCartItems([]);
+      setTotal(0);
+    }
   };
 
   const handleUpdateQuantity = (productId: number, newQuantity: number) => {
@@ -94,27 +115,27 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         {cartItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 p-4">
+          <div className="flex flex-col items-center justify-center flex-grow h-[calc(100vh-180px)] p-4">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
             <p className="text-gray-500 text-center mb-4">Tu carrito está vacío</p>
-            <Link 
-              to="/productos" 
+            <ScrollToTopLink 
+              to="/tienda" 
               className="bg-primario text-white py-2 px-4 rounded hover:bg-hover transition-colors"
               onClick={onClose}
             >
               Ver productos
-            </Link>
+            </ScrollToTopLink>
           </div>
         ) : (
-          <>
+          <div className="overflow-auto h-[calc(100vh-180px)]">
             <div className="divide-y divide-gray-200">
               {cartItems.map((item) => (
-                <div key={item.id} className="p-4 flex items-center">
+                <div key={item.product.id} className="p-4 flex items-center" data-component-name="CartModal">
                   <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                    {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    {item.product.images && item.product.images.length > 0 && item.product.images[0].src ? (
+                      <img src={item.product.images[0].src} alt={item.product.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-200">
                         <span className="text-2xl">🛍️</span>
@@ -123,15 +144,15 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   
                   <div className="ml-4 flex-grow">
-                    <h3 className="font-medium text-sm line-clamp-2">{item.name}</h3>
+                    <h3 className="font-medium text-sm line-clamp-2">{item.product.name}</h3>
                     <p className="text-primario font-bold mt-1">
-                      {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(item.price) || 0)}
+                      {formatCurrency(item.product.price)}
                     </p>
                     
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center border border-gray-300 rounded">
                         <button 
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                          onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
                           className="px-2 py-1 text-gray-500 hover:text-primario transition-all"
                           aria-label="Disminuir cantidad"
                         >
@@ -139,7 +160,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                         </button>
                         <span className="px-2 py-1 min-w-[30px] text-center">{item.quantity}</span>
                         <button 
-                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
                           className="px-2 py-1 text-gray-500 hover:text-primario transition-all"
                           aria-label="Aumentar cantidad"
                         >
@@ -148,7 +169,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                       </div>
                       
                       <button 
-                        onClick={() => handleRemoveItem(item.id)}
+                        onClick={() => handleRemoveItem(item.product.id)}
                         className="text-red-500 hover:text-red-700 p-1 transition-all"
                         aria-label="Eliminar producto"
                       >
@@ -159,34 +180,35 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                 </div>
               ))}
             </div>
-            
-            <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-gray-200 p-4">
-              <div className="flex justify-between items-center mb-4">
-                <span className="font-medium">Total:</span>
-                <span className="text-xl font-bold text-primario">
-                  {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(total)}
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <Link 
-                  to="/carrito" 
-                  className="bg-white border border-primario text-primario py-2 px-4 rounded text-center hover:bg-primario/10 transition-colors"
-                  onClick={onClose}
-                >
-                  Ver carrito
-                </Link>
-                <Link 
-                  to="/checkout" 
-                  className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-hover transition-colors hover:!text-white"
-                  onClick={onClose}
-                >
-                  Finalizar compra
-                </Link>
-              </div>
-            </div>
-          </>
+          </div>
         )}
+        
+        {/* Footer con total siempre visible */}
+        <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-gray-200 p-4">
+          <div className="flex justify-between items-center mb-4">
+            <span className="font-medium">Total:</span>
+            <span className="text-xl font-bold text-primario">
+              {formatCurrency(total)}
+            </span>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <ScrollToTopLink 
+              to="/carrito" 
+              className="bg-white border border-primario text-primario py-2 px-4 rounded text-center hover:bg-primario/10 transition-colors"
+              onClick={onClose}
+            >
+              Ver carrito
+            </ScrollToTopLink>
+            <ScrollToTopLink 
+              to="/checkout" 
+              className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-hover transition-colors hover:!text-white"
+              onClick={onClose}
+            >
+              Finalizar compra
+            </ScrollToTopLink>
+          </div>
+        </div>
       </div>
     </div>
   );

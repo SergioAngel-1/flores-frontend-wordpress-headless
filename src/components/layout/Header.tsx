@@ -8,13 +8,13 @@ import ProfileModal from '../profile/ProfileModal';
 import HiperofertasModal from '../products/HiperofertasModal';
 import HelpModal from '../help/HelpModal';
 import CartModal from '../cart/CartModal';
-import menuCategories from '../../data/menuCategories';
 import MobileMenu from './MobileMenu';
 import MainMenu from './MainMenu';
 import SearchBar from './SearchBar';
 import HeaderIcons from './HeaderIcons';
 import { IoMdFlash } from 'react-icons/io';
 import AddressBar from './AddressBar';
+import useWordPressMenu from '../../hooks/useWordPressMenu';
 
 const Header = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -31,6 +31,9 @@ const Header = () => {
   const [activeProfileSection, setActiveProfileSection] = useState<'profile' | 'addresses' | 'orders' | 'favorites'>('profile');
   const searchRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useAuth();
+
+  // Obtener categorías del menú desde WordPress
+  const { menuCategories, loading: menuLoading } = useWordPressMenu();
 
   // Funciones
   const toggleMobileMenu = () => setIsMenuOpen(!isMenuOpen);
@@ -280,11 +283,22 @@ const Header = () => {
         isScrolled ? 'opacity-0 h-0 overflow-hidden' : 'opacity-100'
       }`}>
         <div className="w-full max-w-[1920px] mx-auto px-2 sm:px-4">
-          <MainMenu 
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            categories={menuCategories}
-          />
+          {menuLoading ? (
+            <div className="flex justify-center py-2">
+              <div className="animate-pulse flex space-x-4">
+                <div className="h-4 w-24 bg-gray-300 rounded"></div>
+                <div className="h-4 w-32 bg-gray-300 rounded"></div>
+                <div className="h-4 w-28 bg-gray-300 rounded"></div>
+                <div className="h-4 w-20 bg-gray-300 rounded"></div>
+              </div>
+            </div>
+          ) : (
+            <MainMenu 
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              categories={menuCategories}
+            />
+          )}
         </div>
       </div>
 

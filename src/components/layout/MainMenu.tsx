@@ -1,11 +1,11 @@
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
-import { Category } from '../../data/menuCategories';
+import { MenuCategory } from '../../types/menu';
 
 interface MainMenuProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
-  categories: Category[];
+  categories: MenuCategory[];
 }
 
 // Función auxiliar para formatear texto a formato título (primera letra mayúscula, resto minúsculas)

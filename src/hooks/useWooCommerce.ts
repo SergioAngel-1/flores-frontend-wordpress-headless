@@ -97,8 +97,23 @@ export const useCategories = () => {
         
         const response = await categoryService.getAll();
         
+        // Procesar las categorías para asegurar que todas tengan slugs válidos
+        const processedCategories = response.data.map((category: Category) => {
+          // Si la categoría no tiene slug o el slug está vacío, generarlo a partir del nombre
+          if (!category.slug) {
+            const { generateSlug } = require('../utils/formatters');
+            return {
+              ...category,
+              slug: generateSlug(category.name)
+            };
+          }
+          return category;
+        });
+        
+        console.log('Categorías procesadas:', processedCategories);
+        
         setState({
-          data: response.data,
+          data: processedCategories,
           loading: false,
           error: null,
         });

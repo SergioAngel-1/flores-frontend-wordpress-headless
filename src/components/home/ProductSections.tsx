@@ -85,7 +85,7 @@ const ProductSection: React.FC<ProductSectionsProps> = ({ sectionId, className =
   }
 
   return (
-    <section className={`py-8 ${className}`}>
+    <section className={`py-8 bg-white ${className}`}>
       <div className="container mx-auto px-16 md:px-16 max-w-full">
         <div className="flex justify-between items-center mb-6">
           <div className="text-left">
@@ -96,7 +96,7 @@ const ProductSection: React.FC<ProductSectionsProps> = ({ sectionId, className =
           </div>
           <Link 
             to={`/categoria/${section.category_slug}`}
-            className="inline-block bg-primario border border-primario text-white py-2 px-6 rounded-md hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="inline-block bg-primario border border-primario text-white py-2 px-6 rounded-md hover:scale-105 hover:text-[var(--claro)] transition-all duration-200 shadow-sm hover:shadow-md"
           >
             Ver más
           </Link>
@@ -198,7 +198,7 @@ export const TopProductSections: React.FC = () => {
   return (
     <>
       {allSections.section_top_1 && <ProductSection sectionId="section_top_1" />}
-      {allSections.section_top_2 && <ProductSection sectionId="section_top_2" className="bg-gray-50" />}
+      {allSections.section_top_2 && <ProductSection sectionId="section_top_2" />}
     </>
   );
 };
@@ -213,7 +213,7 @@ export const MiddleProductSections: React.FC = () => {
   return (
     <>
       {allSections.section_middle_1 && <ProductSection sectionId="section_middle_1" />}
-      {allSections.section_middle_2 && <ProductSection sectionId="section_middle_2" className="bg-gray-50" />}
+      {allSections.section_middle_2 && <ProductSection sectionId="section_middle_2" />}
     </>
   );
 };
@@ -325,7 +325,7 @@ export const BottomProductSections: React.FC = () => {
   }
 
   return (
-    <div className="bg-gray-50 py-8">
+    <div className="bg-white py-8">
       <div className="container mx-auto px-16 md:px-16 max-w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-24">
           {allSections.section_bottom_1 && (
@@ -339,7 +339,7 @@ export const BottomProductSections: React.FC = () => {
                 </div>
                 <Link 
                   to={`/categoria/${allSections.section_bottom_1.category_slug}`}
-                  className="inline-block bg-primario border border-primario text-white py-2 px-6 rounded-md hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-block bg-primario border border-primario text-white py-2 px-6 rounded-md hover:scale-105 hover:text-[var(--claro)] transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   Ver más
                 </Link>
@@ -372,7 +372,7 @@ export const BottomProductSections: React.FC = () => {
                 </div>
                 <Link 
                   to={`/categoria/${allSections.section_bottom_2.category_slug}`}
-                  className="inline-block bg-primario border border-primario text-white py-2 px-6 rounded-md hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-block bg-primario border border-primario text-white py-2 px-6 rounded-md hover:scale-105 hover:text-[var(--claro)] transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   Ver más
                 </Link>

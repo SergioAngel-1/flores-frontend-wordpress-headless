@@ -10,6 +10,7 @@ import SearchPage from './pages/SearchPage'
 import LandingPage from './pages/LandingPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsConditionsPage from './pages/TermsConditionsPage'
+import ContactPage from './pages/ContactPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AuthModals from './components/auth/AuthModals'
 import './index.css'
@@ -36,12 +37,14 @@ function AppContent() {
             <Route path="/" element={<HomePage />} />
             <Route path="/tienda" element={<ShopPage />} />
             <Route path="/api-test" element={<ApiTestPage />} />
-            <Route path="/producto/:id" element={<ProductDetailPage />} />
+            <Route path="/producto/:slug" element={<ProductDetailPage />} />
+            <Route path="/categoria/:slug" element={<ShopPage />} />
             <Route path="/carrito" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/busqueda" element={<SearchPage />} />
             <Route path="/privacidad" element={<PrivacyPolicyPage />} />
             <Route path="/terminos" element={<TermsConditionsPage />} />
+            <Route path="/contacto" element={<ContactPage />} />
             <Route path="/login" element={<Navigate to="/" />} />
             <Route path="*" element={
               <div className="container mx-auto px-4 py-20 text-center">
@@ -56,6 +59,7 @@ function AppContent() {
           <Route path="/login" element={<LandingPage />} />
           <Route path="/privacidad" element={<PrivacyPolicyPage />} />
           <Route path="/terminos" element={<TermsConditionsPage />} />
+          <Route path="/contacto" element={<ContactPage />} />
           <Route path="*" element={<Navigate to="/login" />} />
         </Routes>
       )}
