@@ -37,7 +37,7 @@ interface AuthContextType {
   user: User | null;
   login: (identifier: string, password: string) => Promise<boolean>;
   logout: () => void;
-  register: (username: string, email: string, password: string, phone?: string) => Promise<void>;
+  register: (username: string, email: string, password: string, phone?: string, referralCode?: string) => Promise<void>;
   loading: boolean;
   error: string | null;
   saveAddress: (address: Partial<Address>) => Promise<Address>;
@@ -182,17 +182,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsPending(false);
   };
 
-  const register = async (username: string, email: string, password: string, phone?: string): Promise<void> => {
+  const register = async (username: string, email: string, password: string, phone?: string, referralCode?: string): Promise<void> => {
     try {
       setLoading(true);
       setError(null);
       
       await axios.post(`${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/register`, {
-        username: email,
+        username,
         email,
         password,
         name: username,
-        phone
+        phone,
+        referralCode
       });
       
       // No iniciamos sesión automáticamente porque el usuario debe ser aprobado por un administrador

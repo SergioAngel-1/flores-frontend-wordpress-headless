@@ -3,6 +3,7 @@ import { Product, Category } from '../types/woocommerce';
 import OAuth from 'oauth-1.0a';
 import CryptoJS from 'crypto-js';
 import { showServerErrorAlert } from './alertService';
+import * as config from '../config';
 
 // Variables para controlar los errores de servidor
 let serverErrorShown = false;
@@ -12,7 +13,7 @@ const ERROR_COOLDOWN = 10000; // 10 segundos entre alertas
 // Obtener las claves de la API de WooCommerce
 const consumerKey = import.meta.env.VITE_WC_CONSUMER_KEY;
 const consumerSecret = import.meta.env.VITE_WC_CONSUMER_SECRET;
-const apiUrl = ''; // URL vacía para usar rutas relativas con el proxy de Vite
+const apiUrl = config.API_URL; // Usar la URL base definida en config.ts
 
 // Configuración de OAuth 1.0a
 const oauth = new OAuth({
@@ -37,9 +38,37 @@ const getAuthHeaders = (url: string, method: string) => {
   return oauth.authorize(requestData);
 };
 
+// Configurar axios para incluir credenciales en todas las solicitudes
+axios.defaults.withCredentials = true;
+
+// Interceptor para manejar errores de red
+axios.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('Error en solicitud API:', error);
+    
+    // Solo mostrar alerta si no se ha mostrado recientemente
+    const currentTime = Date.now();
+    if (!serverErrorShown || (currentTime - lastErrorTime > ERROR_COOLDOWN)) {
+      serverErrorShown = true;
+      lastErrorTime = currentTime;
+      
+      // Mostrar mensaje de error al usuario
+      showServerErrorAlert();
+      
+      // Resetear el estado después del cooldown
+      setTimeout(() => {
+        serverErrorShown = false;
+      }, ERROR_COOLDOWN);
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
 // Crear instancia de Axios para WooCommerce API
 const wooCommerceApi = axios.create({
-  baseURL: `/wp-json/wc/v3`,
+  baseURL: `${apiUrl}/wp-json/wc/v3`,
   timeout: 10000, // Timeout global de 10 segundos
   headers: {
     'Content-Type': 'application/json',
@@ -53,7 +82,7 @@ wooCommerceApi.interceptors.request.use(config => {
   config.params = config.params || {};
   
   // Construir la URL completa para la firma OAuth
-  const urlObj = new URL(`http://flores.local/wp-json/wc/v3${config.url || ''}`);
+  const urlObj = new URL(`${apiUrl}/wp-json/wc/v3${config.url || ''}`);
   
   // Añadir parámetros existentes a la URL
   Object.entries(config.params).forEach(([key, value]) => {
@@ -147,7 +176,7 @@ export const authService = {
     try {
       // Primero intentamos con JWT
       try {
-        const jwtResponse = await axios.post(`/jwt-auth/v1/token`, {
+        const jwtResponse = await axios.post(`${apiUrl}/jwt-auth/v1/token`, {
           username: identifier,
           password
         }, {
@@ -177,7 +206,7 @@ export const authService = {
       }
       
       // Método alternativo: uso de cookies de autenticación de WordPress
-      const cookieResponse = await axios.post(`/wp-json/api/v1/token`, {
+      const cookieResponse = await axios.post(`${apiUrl}/wp-json/api/v1/token`, {
         username: identifier,
         password
       }, {
@@ -290,7 +319,7 @@ export const authService = {
       }
       
       // Intentar obtener el usuario con token JWT
-      const response = await axios.get(`/wp-json/wp/v2/users/me`, {
+      const response = await axios.get(`${apiUrl}/wp-json/wp/v2/users/me`, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('wpToken')}`
         }
@@ -373,7 +402,7 @@ export const categoryService = {
   getById: (id: number) => wooCommerceApi.get<Category>(`/products/categories/${id}`),
   getBySlug: (slug: string) => {
     // Intentar primero con el endpoint personalizado que maneja slugs normalizados
-    return axios.get<Category[]>(`/wp-json/floresinc/v1/product-categories`, { 
+    return axios.get<Category[]>(`${apiUrl}/wp-json/floresinc/v1/product-categories`, { 
       params: { slug }
     }).catch(error => {
       console.error('Error al obtener categoría por slug con endpoint personalizado:', error);
@@ -561,10 +590,144 @@ export const orderService = {
   }
 };
 
+// Servicio para puntos y referidos
+export const pointsService = {
+  /**
+   * Obtiene los Flores Coins del usuario actual
+   */
+  getUserPoints: async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/wp-json/floresinc/v1/points`, {
+        withCredentials: true
+      });
+      console.log('Datos de Flores Coins recibidos:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error al obtener Flores Coins del usuario:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Obtiene las estadísticas de referidos del usuario
+   */
+  getReferralStats: async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/wp-json/floresinc/v1/referrals/stats`, {
+        withCredentials: true
+      });
+      console.log('Estadísticas de referidos recibidas:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error al obtener estadísticas de referidos:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Obtiene el historial de transacciones de Flores Coins del usuario
+   */
+  getPointsTransactions: async (page = 1) => {
+    try {
+      const response = await axios.get(`${apiUrl}/wp-json/floresinc/v1/points/transactions`, {
+        params: { page },
+        withCredentials: true
+      });
+      return response;
+    } catch (error) {
+      console.error('Error al obtener transacciones de Flores Coins:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Obtiene el código de referido
+   */
+  getReferralCode: async () => {
+    try {
+      const response = await axios.get(`${apiUrl}/wp-json/floresinc/v1/referrals/code`, {
+        withCredentials: true
+      });
+      return response;
+    } catch (error) {
+      console.error('Error al obtener código de referido:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Obtiene información del referido por código
+   */
+  getReferrerByCode: async (code: string) => {
+    console.log('API Service - Obteniendo información del referido para código:', code);
+    
+    // Verificar si estamos en ambiente de desarrollo
+    const isDev = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    // En desarrollo, simular una respuesta exitosa para evitar errores 404
+    if (isDev) {
+      console.log('API Service - Ambiente de desarrollo detectado, usando datos simulados');
+      return Promise.resolve({ name: `Usuario con código: ${code}` });
+    }
+    
+    // En producción, intentar obtener los datos reales
+    return axios.get(`${apiUrl}/wp-json/floresinc/v1/referrals/referrer?code=${code}`, {
+      withCredentials: true
+    })
+      .then(response => {
+        console.log('API Service - Respuesta exitosa para referido:', response.data);
+        return response.data;
+      })
+      .catch(() => { 
+        console.log('API Service - Error al obtener información del referido, usando datos genéricos');
+        // Devolver un objeto con datos mínimos para evitar errores en el cliente
+        return { name: `Usuario con código: ${code}` }; 
+      });
+  },
+  
+  /**
+   * Valida si un código de referido existe y devuelve información del usuario asociado
+   */
+  validateReferralCode: async (code: string) => {
+    try {
+      const response = await axios.get(`${apiUrl}/wp-json/floresinc/v1/referrals/validate-code`, {
+        params: { code },
+        withCredentials: true
+      });
+      console.log('Validación de código de referido:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error al validar código de referido:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Transfiere Flores Coins a otro usuario utilizando su código de referido
+   */
+  transferPoints: async (recipientCode: string, pointsAmount: number, notes: string = '') => {
+    try {
+      const response = await axios.post(`${apiUrl}/wp-json/floresinc/v1/points/transfer`, {
+        recipient_code: recipientCode,
+        points_amount: pointsAmount,
+        notes: notes
+      }, {
+        withCredentials: true
+      });
+      console.log('Transferencia de Flores Coins completada:', response.data);
+      return response;
+    } catch (error) {
+      console.error('Error al transferir Flores Coins:', error);
+      throw error;
+    }
+  },
+};
+
 export default {
   productService,
   categoryService,
   cartService,
   orderService,
-  authService
+  authService,
+  pointsService
 };

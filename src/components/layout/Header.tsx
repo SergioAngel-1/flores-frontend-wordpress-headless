@@ -7,6 +7,8 @@ import ProfileModal from '../profile/ProfileModal';
 import HiperofertasModal from '../products/HiperofertasModal';
 import HelpModal from '../help/HelpModal';
 import CartModal from '../cart/CartModal';
+import FloresCoinsModal from '../modals/PointsModal';
+import WalletModal from '../modals/WalletModal';
 import MobileMenu from './MobileMenu';
 import MainMenu from './MainMenu';
 import SearchBar from './SearchBar';
@@ -21,6 +23,8 @@ const Header = () => {
   const [isHiperofertasModalOpen, setIsHiperofertasModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+  const [isFloresCoinsModalOpen, setIsFloresCoinsModalOpen] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [helpModalInitialTab, setHelpModalInitialTab] = useState<'help' | 'howToOrder'>('help');
   const [activeTab, setActiveTab] = useState('inicio');
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,6 +84,25 @@ const Header = () => {
 
   const closeCartModal = () => {
     setIsCartModalOpen(false);
+  };
+
+  // Abrir/cerrar modal de Flores Coins
+  const openFloresCoinsModal = () => {
+    setIsFloresCoinsModalOpen(true);
+  };
+
+  const closeFloresCoinsModal = () => {
+    setIsFloresCoinsModalOpen(false);
+  };
+
+  // Abrir modal de billetera
+  const openWalletModal = () => {
+    setIsWalletModalOpen(true);
+  };
+
+  // Cerrar modal de billetera
+  const closeWalletModal = () => {
+    setIsWalletModalOpen(false);
   };
 
   // Actualizar contador de carrito
@@ -269,10 +292,11 @@ const Header = () => {
               </button>
             </div>
             <HeaderIcons 
-              cartItemCount={cartItemCount}
+              cartItemCount={cartItemCount} 
               isAuthenticated={isAuthenticated}
               openProfileModal={openProfileModal}
               openCartModal={openCartModal}
+              openWalletModal={openWalletModal}
             />
           </div>
         </div>
@@ -297,6 +321,7 @@ const Header = () => {
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               categories={menuCategories}
+              openFloresCoinsModal={openFloresCoinsModal}
             />
           )}
         </div>
@@ -339,6 +364,20 @@ const Header = () => {
         <CartModal 
           isOpen={isCartModalOpen} 
           onClose={closeCartModal} 
+        />
+      )}
+
+      {isFloresCoinsModalOpen && (
+        <FloresCoinsModal
+          isOpen={isFloresCoinsModalOpen}
+          onClose={closeFloresCoinsModal}
+        />
+      )}
+
+      {isWalletModalOpen && (
+        <WalletModal
+          isOpen={isWalletModalOpen}
+          onClose={closeWalletModal}
         />
       )}
     </>

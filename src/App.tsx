@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import HomePage from './pages/HomePage'
 import ApiTestPage from './pages/ApiTestPage'
@@ -11,9 +11,28 @@ import LandingPage from './pages/LandingPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsConditionsPage from './pages/TermsConditionsPage'
 import ContactPage from './pages/ContactPage'
+import ReferidosPage from './pages/ReferidosPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AuthModals from './components/auth/AuthModals'
 import './index.css'
+
+// Componente para preservar los parámetros de la URL en redirecciones
+const PreserveQueryParamsRoute = () => {
+  const location = useLocation();
+  
+  console.log('PreserveQueryParamsRoute - Path actual:', location.pathname);
+  console.log('PreserveQueryParamsRoute - Parámetros URL:', location.search);
+  
+  // Verificar si ya estamos en la ruta /login para evitar bucles de redirección
+  if (location.pathname === '/login') {
+    console.log('PreserveQueryParamsRoute - Ya estamos en /login, renderizando LandingPage directamente');
+    return <LandingPage />;
+  }
+  
+  // Conservar los parámetros de la URL al redirigir
+  console.log('PreserveQueryParamsRoute - Redirigiendo a /login con parámetros:', location.search);
+  return <Navigate to={`/login${location.search}`} replace={true} />;
+};
 
 // Componente principal de la aplicación
 function AppContent() {
@@ -42,6 +61,7 @@ function AppContent() {
             <Route path="/carrito" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/busqueda" element={<SearchPage />} />
+            <Route path="/referidos" element={<ReferidosPage />} />
             <Route path="/privacidad" element={<PrivacyPolicyPage />} />
             <Route path="/terminos" element={<TermsConditionsPage />} />
             <Route path="/contacto" element={<ContactPage />} />
@@ -60,7 +80,7 @@ function AppContent() {
           <Route path="/privacidad" element={<PrivacyPolicyPage />} />
           <Route path="/terminos" element={<TermsConditionsPage />} />
           <Route path="/contacto" element={<ContactPage />} />
-          <Route path="*" element={<Navigate to="/login" />} />
+          <Route path="*" element={<PreserveQueryParamsRoute />} />
         </Routes>
       )}
     </Router>

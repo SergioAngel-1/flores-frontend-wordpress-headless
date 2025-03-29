@@ -1,11 +1,13 @@
 import { FC } from 'react';
 import { Link } from 'react-router-dom';
 import { MenuCategory } from '../../types/menu';
+import { FiGift } from 'react-icons/fi';
 
 interface MainMenuProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   categories: MenuCategory[];
+  openFloresCoinsModal: () => void;
 }
 
 // Función auxiliar para formatear texto a formato título (primera letra mayúscula, resto minúsculas)
@@ -18,7 +20,7 @@ const formatTitleCase = (text: string): string => {
     .join(' ');
 };
 
-const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories }) => {
+const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories, openFloresCoinsModal }) => {
   return (
     <nav className="flex items-center justify-center w-full">
       <div className="flex items-center space-x-8">
@@ -83,6 +85,18 @@ const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories }) =>
         >
           Contacto
         </Link>
+        
+        <button 
+          className={`text-sm font-bold px-3 py-2 rounded-md transition-all duration-300 text-primario bg-secundario capitalize tab-push-effect flex items-center ${
+            activeTab === 'referidos' 
+              ? 'border-b-2 border-white' 
+              : ''
+          }`} 
+          onClick={openFloresCoinsModal}
+          data-component-name="LinkWithRef"
+        >
+          <FiGift className="mr-1" /> Mis Flores Coins
+        </button>
       </div>
     </nav>
   );

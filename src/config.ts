@@ -1,11 +1,11 @@
 // Configuración global de la aplicación
 
 // URL base de la API de WordPress
-export const API_URL = process.env.VITE_WP_API_URL || 'http://flores.local/wp-json';
+export const API_URL = import.meta.env.VITE_WP_API_URL || 'http://flores.local';
 
 // Claves de WooCommerce
-export const WC_CONSUMER_KEY = process.env.VITE_WC_CONSUMER_KEY || '';
-export const WC_CONSUMER_SECRET = process.env.VITE_WC_CONSUMER_SECRET || '';
+export const WC_CONSUMER_KEY = import.meta.env.VITE_WC_CONSUMER_KEY || '';
+export const WC_CONSUMER_SECRET = import.meta.env.VITE_WC_CONSUMER_SECRET || '';
 
 // Configuración de paginación
 export const ITEMS_PER_PAGE = 12;
@@ -22,7 +22,7 @@ export const SOCIAL_MEDIA = {
 };
 
 // Configuración de mapas
-export const MAP_API_KEY = process.env.VITE_MAP_API_KEY || '';
+export const MAP_API_KEY = import.meta.env.VITE_MAP_API_KEY || '';
 
 // Límites de la aplicación
 export const MAX_ADDRESSES = 3;
