@@ -1,6 +1,6 @@
 # Flores INC - Frontend E-Commerce
 
-Frontend moderno para la tienda en línea de Flores INC, desarrollado con React, TypeScript y Tailwind CSS, integrado con un backend headless WordPress mediante la API de WooCommerce.
+Frontend moderno para la tienda en línea de Flores INC, desarrollado con React, TypeScript y Tailwind CSS, integrado con un backend headless WordPress mediante la API de WooCommerce y APIs personalizadas.
 
 ## Características
 
@@ -14,12 +14,15 @@ Frontend moderno para la tienda en línea de Flores INC, desarrollado con React,
 - Gestión de perfil de usuario y direcciones
 - Sistema de autenticación integrado con WordPress
 - Checkout completo con integración a WooCommerce
+- Sistema de referidos con códigos de invitación
+- Billetera virtual para transferencia de Flores Coins entre usuarios
 
 ## Requisitos Previos
 
 - Node.js (v14 o superior)
 - npm o yarn
 - WordPress con WooCommerce instalado y configurado
+- Plugin FloresInc Referrals & Points instalado en WordPress
 
 ## Instalación
 
@@ -60,6 +63,7 @@ src/
 │   ├── ui/            # Componentes de interfaz (botones, formularios, etc.)
 │   ├── cart/          # Componentes relacionados con el carrito
 │   ├── profile/       # Componentes de perfil de usuario
+│   ├── modals/        # Componentes modales (Login, Wallet, etc.)
 │   └── products/      # Componentes de productos y categorías
 ├── contexts/          # Contextos de React (AuthContext, CartContext)
 ├── hooks/             # Custom hooks
@@ -81,6 +85,13 @@ src/
 - `ProfileSection`: Sección para editar información personal
 - `AddressesSection`: Gestión de direcciones del usuario
 - `OrdersSection`: Historial de pedidos del usuario
+
+### Sistema de Referidos y Billetera
+
+- `WalletModal`: Modal para gestionar la billetera virtual
+- `ReferralSection`: Sección para compartir y gestionar referidos
+- `ReferralLink`: Componente para generar enlaces de referido
+- `TransferCoins`: Formulario para transferir Flores Coins
 
 ### Carrito y Checkout
 
@@ -107,15 +118,113 @@ src/
 - `/contacto` - Página de contacto
 - `/blog` - Blog de la tienda
 - `/legal/:page` - Páginas legales (términos, privacidad, etc.)
+- `/login` - Página de inicio de sesión (con soporte para referidos)
+- `/register` - Página de registro (con soporte para referidos)
 
-## Integración con WooCommerce
+## Sistema de Referidos
 
-El proyecto utiliza la API REST de WooCommerce para:
-- Obtener productos y categorías
-- Gestionar el carrito de compras
-- Procesar pedidos
-- Autenticación de usuarios
-- Gestión de perfiles y direcciones
+El sistema de referidos funciona de la siguiente manera:
+
+1. Cada usuario tiene un código único de referido generado automáticamente
+2. Los usuarios pueden compartir un enlace con su código (ej: `http://dominio?ref=CODIGO`)
+3. Cuando un nuevo usuario accede a través de ese enlace:
+   - Es dirigido al formulario de registro con el código ya completado
+   - Se muestra el nombre del referidor para confirmar quién los invitó
+4. Al registrarse un nuevo usuario con código de referido:
+   - Se establece la relación entre referidor y referido
+   - Se generan Flores Coins para el referidor cuando el referido es aprobado
+
+## Sistema de Referidos y Moneda Virtual (Flores Coins)
+
+### Sistema de Referidos
+
+El sistema de referidos es una funcionalidad clave que permite a los usuarios invitar a otros y obtener recompensas. Su implementación incluye:
+
+#### Componentes Frontend
+- **Generación de Enlaces**: Los enlaces de referido se generan automáticamente en el perfil del usuario
+- **Persistencia de Cookies**: Cuando un usuario accede a través de un enlace de referido, el código se almacena en cookies
+- **Pre-llenado de Formulario**: El registro detecta el código de referido en cookies y lo autocompleta
+- **Validación Visual**: El sistema muestra el nombre del referidor durante el registro para confirmar la relación
+- **Interfaz de Usuarios Referidos**: Cada usuario puede ver una lista de las personas que ha referido
+
+#### Flujo Completo del Sistema de Referidos
+1. **Generación de Código**: Al registrarse, cada usuario recibe un código alfanumérico único
+2. **Compartir**: El usuario comparte su enlace personalizado (URL + parámetro `ref=CODIGO`)
+3. **Aterrizaje**: Al hacer clic en el enlace, el visitante es redirigido a la página principal
+   - Si el visitante no está autenticado, se le dirige al formulario de registro
+   - El código de referido se almacena en una cookie por 30 días
+4. **Registro**: Al registrarse, el sistema:
+   - Detecta el código almacenado en la cookie
+   - Valida que el código corresponda a un usuario existente
+   - Vincula al nuevo usuario con su referidor en la base de datos
+   - Coloca al usuario en estado "pendiente de aprobación"
+5. **Aprobación**: Cuando un administrador aprueba al usuario:
+   - Se verifica nuevamente la relación de referido
+   - Se asignan Flores Coins al referidor como recompensa
+   - Ambos usuarios reciben notificaciones del proceso
+
+### Moneda Virtual (Flores Coins)
+
+La moneda virtual Flores Coins es un sistema de puntos de fidelidad que permite múltiples interacciones económicas dentro de la plataforma:
+
+#### Características Técnicas
+- **Persistencia**: El balance se almacena en la base de datos y se sincroniza con el estado de React
+- **Precision**: Todos los valores se manejan como enteros para evitar problemas de precisión
+- **Transacciones Atómicas**: Se utilizan transacciones SQL para garantizar la integridad
+- **Historial Completo**: Cada operación genera un registro de transacción con timestamp
+
+#### Formas de Obtener Flores Coins
+1. **Registro**: Bonificación inicial al registrarse
+2. **Referidos**: Recompensa cuando un referido es aprobado
+3. **Compras**: Porcentaje del valor de cada compra realizada
+4. **Transferencias**: Recibidas de otros usuarios
+5. **Eventos Especiales**: Campañas y promociones específicas
+
+#### Uso de Flores Coins
+1. **Transferencias**: Envío a otros usuarios mediante su código de referido
+2. **Descuentos**: Redimir en el proceso de checkout para obtener descuentos
+3. **Productos Exclusivos**: Acceso a productos que solo pueden comprarse con Flores Coins
+
+#### Billetera Virtual (Wallet)
+El componente `WalletModal` proporciona una interfaz completa para la gestión de Flores Coins:
+
+- **Panel Superior**: Muestra el balance actual y un resumen de movimientos
+- **Sección de Transferencia**:
+  - Campo para ingresar el código de referido del destinatario
+  - Validación en tiempo real del código (muestra el nombre del destinatario)
+  - Control numérico para ingresar el monto a transferir
+  - Campo opcional para añadir notas a la transferencia
+  - Botón de confirmación con validaciones de saldo suficiente
+- **Feedback de Operaciones**: Notificaciones visuales de éxito o error
+- **Prevención de Errores**: Bloqueo de transferencias a sí mismo o a usuarios inexistentes
+
+#### Implementación Técnica de la Billetera
+- **Estado Local**: Gestión del formulario con React useState
+- **Validación Asíncrona**: Los códigos de referido se validan en tiempo real contra la API
+- **Actualización Optimista**: El balance se actualiza inmediatamente en la interfaz
+- **Manejo de Errores**: Sistema robusto de captura y visualización de errores
+- **Animaciones**: Transiciones suaves entre estados con CSS Animations
+
+#### Integración con el Resto del Sistema
+- **Header**: Botón dedicado para acceder rápidamente a la billetera
+- **Perfil**: Sección que muestra el historial de transferencias y balance
+- **Checkout**: Opción para usar Flores Coins como método de pago parcial
+- **API Service**: Módulo dedicado para todas las operaciones relacionadas con la billetera
+
+### Seguridad del Sistema
+- **Validación en Ambos Extremos**: Tanto en frontend como en backend
+- **Prevención de Transferencias Negativas**: Validación de montos positivos
+- **Verificación de Saldo**: Comprobación de saldo suficiente antes de cualquier operación
+- **Protección contra Ataques**: Limitación de solicitudes por tiempo
+- **Autenticación Requerida**: Todas las operaciones requieren usuario autenticado
+- **Logs Detallados**: Registro de todas las operaciones para auditoría
+
+## Integración con WooCommerce y APIs Personalizadas
+
+El proyecto utiliza:
+- API REST de WooCommerce para productos, categorías, carrito y pedidos
+- API personalizada para el sistema de referidos y Flores Coins
+- Autenticación mediante JWT con WordPress
 
 ### Servicios API
 
@@ -124,6 +233,8 @@ El proyecto utiliza la API REST de WooCommerce para:
 - `cartService`: Gestión del carrito
 - `orderService`: Gestión de pedidos
 - `authService`: Autenticación y gestión de usuarios
+- `referralService`: Gestión de referidos
+- `walletService`: Gestión de la billetera virtual
 
 ## Estilos y Diseño
 
@@ -131,6 +242,7 @@ El proyecto utiliza la API REST de WooCommerce para:
 - Variables CSS personalizadas para colores de marca
 - Animaciones con GSAP para transiciones fluidas
 - Diseño adaptable a móviles, tablets y escritorio
+- Notificaciones con Alertify.js
 
 ## Desarrollo
 
