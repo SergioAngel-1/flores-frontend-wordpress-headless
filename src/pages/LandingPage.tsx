@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { FaUser, FaLock, FaEye, FaEyeSlash, FaEnvelope, FaPhone } from 'react-icons/fa';
+import { FaUser, FaLock, FaEye, FaEyeSlash, FaEnvelope, FaPhone, FaUserFriends } from 'react-icons/fa';
 import alertService from '../services/alertService';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { pointsService } from '../services/api';
 
 const LandingPage = () => {
   const { login, register } = useAuth();
@@ -9,9 +11,55 @@ const LandingPage = () => {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [referrerName, setReferrerName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isLoginForm, setIsLoginForm] = useState(true);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Obtener el código de referido de la URL al cargar la página
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const refCode = params.get('ref');
+    
+    console.log('LandingPage - Parámetros URL:', location.search);
+    console.log('LandingPage - Código de referido detectado:', refCode);
+    
+    if (refCode) {
+      setReferralCode(refCode);
+      // Si hay un código de referido, mostrar automáticamente el formulario de registro
+      setIsLoginForm(false);
+      console.log('LandingPage - Cambiando a formulario de registro por código de referido');
+      
+      // Solo intentar obtener el nombre del referido si el código tiene un formato válido
+      if (refCode.length >= 5) {
+        console.log('LandingPage - Intentando obtener nombre del referido para código:', refCode);
+        fetchReferrerName(refCode);
+      } else {
+        console.log('LandingPage - Código de referido demasiado corto, usando nombre genérico');
+        setReferrerName(`Usuario con código: ${refCode}`);
+      }
+    }
+  }, [location.search]); // Usar location.search como dependencia para que se ejecute cuando cambie la URL
+
+  // Función para obtener el nombre del referido
+  const fetchReferrerName = async (code: string) => {
+    try {
+      const referrerData = await pointsService.getReferrerByCode(code);
+      if (referrerData && referrerData.name) {
+        setReferrerName(referrerData.name);
+      } else {
+        // Si no hay datos o no hay nombre, mostrar un mensaje genérico
+        setReferrerName(`Usuario con código: ${code}`);
+      }
+    } catch (error) {
+      console.error('Error al obtener información del referido:', error);
+      // En caso de error, mostrar un mensaje genérico pero seguir con el código de referido
+      setReferrerName(`Usuario con código: ${code}`);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,17 +87,18 @@ const LandingPage = () => {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!identifier || !password || !email) {
-      alertService.error('Por favor, completa todos los campos requeridos');
+    if (!identifier || !email || !password) {
+      alertService.error('Por favor completa todos los campos obligatorios.');
       return;
     }
 
     try {
       setLoading(true);
-      await register(identifier, email, password, phone);
+      await register(identifier, email, password, phone, referralCode);
       alertService.success('Registro exitoso. Tu cuenta está pendiente de aprobación.');
-      // Volver al formulario de login
-      setIsLoginForm(true);
+      
+      // Redirigir a la página de login sin el código de referido
+      navigate('/login', { replace: true });
     } catch (error) {
       console.error('Error al registrar usuario:', error);
       alertService.error('Error al registrar. Por favor, intenta de nuevo más tarde.');
@@ -65,6 +114,24 @@ const LandingPage = () => {
     setPassword('');
     setEmail('');
     setPhone('');
+    // No limpiamos el código de referido para mantenerlo si viene de la URL
+  };
+
+  // Manejar cambio en el campo de referido
+  const handleReferralCodeChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const code = e.target.value;
+    setReferralCode(code);
+    
+    // Si el campo está vacío, limpiar el nombre del referido
+    if (!code) {
+      setReferrerName('');
+      return;
+    }
+    
+    // Si el código tiene al menos 5 caracteres, intentar obtener el nombre del referido
+    if (code.length >= 5) {
+      fetchReferrerName(code);
+    }
   };
 
   return (
@@ -319,6 +386,33 @@ const LandingPage = () => {
                     disabled={loading}
                   />
                 </div>
+              </div>
+
+              {/* Campo de Código de Referido */}
+              <div>
+                <label htmlFor="reg-referral" className="block text-sm font-medium text-gray-700 mb-1">
+                  Código de Referido
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FaUserFriends className="text-gray-400" />
+                  </div>
+                  <input
+                    id="reg-referral"
+                    name="referral"
+                    type="text"
+                    className="appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primario focus:border-primario"
+                    placeholder="Ingresa código de referido (opcional)"
+                    value={referralCode}
+                    onChange={handleReferralCodeChange}
+                    disabled={loading || !!referrerName}
+                  />
+                </div>
+                {referrerName && (
+                  <p className="mt-1 text-sm text-green-600">
+                    Referido por: {referrerName}
+                  </p>
+                )}
               </div>
 
               <div>

@@ -65,10 +65,11 @@ const ReferidosPage = () => {
         const pointsResponse = await pointsService.getUserPoints();
         
         // Obtener transacciones
-        const transactionsResponse = await pointsService.getTransactions(page);
+        const transactionsResponse = await pointsService.getPointsTransactions(page);
         
         // Obtener estadísticas de referidos
         const referralStatsResponse = await pointsService.getReferralStats();
+        console.log('Datos de estadísticas de referidos en componente:', referralStatsResponse.data);
         
         // Obtener código de referido
         const referralCodeResponse = await pointsService.getReferralCode();
@@ -78,7 +79,23 @@ const ReferidosPage = () => {
         setTransactions(transactionsResponse.data.transactions);
         setTotalPages(transactionsResponse.data.total_pages);
         setReferralStats(referralStatsResponse.data);
-        setReferralInfo(referralCodeResponse.data);
+        
+        // Modificar la URL para usar el dominio del frontend en lugar del backend
+        if (referralCodeResponse.data) {
+          const frontendUrl = window.location.origin; // Obtiene el dominio actual del frontend
+          const code = referralCodeResponse.data.code;
+          
+          // Crear la URL de referido con el dominio del frontend
+          const referralUrl = `${frontendUrl}?ref=${code}`;
+          
+          setReferralInfo({
+            code: code,
+            url: referralUrl
+          });
+        } else {
+          setReferralInfo(referralCodeResponse.data);
+        }
+        
         setError('');
       } catch (err) {
         console.error('Error al cargar datos de referidos y puntos:', err);
@@ -277,20 +294,20 @@ const ReferidosPage = () => {
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold text-oscuro mb-6 flex items-center">
         <FiUsers className="mr-2 text-primario" />
-        Mis Referidos y Puntos
+        Mis Referidos y Flores Coins
       </h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Sección de Puntos y Estadísticas */}
+        {/* Sección de Flores Coins y Estadísticas */}
         <div className="lg:col-span-2">
-          {/* Sección de Puntos */}
+          {/* Sección de Flores Coins */}
           <div className="bg-white rounded-lg shadow-md p-4 mb-4">
-            <h2 className="text-lg font-semibold text-oscuro mb-3 border-b pb-2">Mi Saldo de Puntos</h2>
+            <h2 className="text-lg font-semibold text-oscuro mb-3 border-b pb-2">Mi Saldo de Flores Coins</h2>
             
             {points && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-green-50 p-3 rounded-lg text-center">
-                  <p className="text-xs text-gray-600 mb-1">Puntos Disponibles</p>
+                  <p className="text-xs text-gray-600 mb-1">Flores Coins Disponibles</p>
                   <p className="text-2xl font-bold text-green-600">{points.balance}</p>
                   <p className="text-xs text-gray-500 mt-1">
                     Valor: {formatCurrency(points.monetary_value)}
@@ -315,9 +332,11 @@ const ReferidosPage = () => {
                 
                 <div className="bg-yellow-50 p-3 rounded-lg text-center">
                   <p className="text-xs text-gray-600 mb-1">Tipo de Cambio</p>
-                  <p className="text-2xl font-bold text-yellow-600" data-component-name="ReferidosPage">{formatCurrency(points.conversion_rate)}</p>
+                  <p className="text-2xl font-bold text-yellow-600" data-component-name="ReferidosPage">
+                    {points.conversion_rate ? `1 : ${points.conversion_rate}` : 'No disponible'}
+                  </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Puntos por peso
+                    Peso por Flores Coin
                   </p>
                 </div>
               </div>
@@ -355,7 +374,7 @@ const ReferidosPage = () => {
                 </div>
                 
                 <div className="bg-amber-50 p-3 rounded-lg text-center">
-                  <p className="text-xs text-gray-600 mb-1">Puntos Generados</p>
+                  <p className="text-xs text-gray-600 mb-1">Flores Coins Generados</p>
                   <p className="text-2xl font-bold text-amber-600">{referralStats.total_points_generated}</p>
                   <p className="text-xs text-gray-500 mt-1">
                     Por referidos
@@ -427,13 +446,13 @@ const ReferidosPage = () => {
         </div>
       </div>
       
-      {/* Sección de Historial de Transacciones */}
+      {/* Sección de Historial de Flores Coins */}
       <div className="bg-white rounded-lg shadow-md p-4 mt-4">
-        <h2 className="text-lg font-semibold text-oscuro mb-3 border-b pb-2">Historial de Transacciones</h2>
+        <h2 className="text-lg font-semibold text-oscuro mb-3 border-b pb-2">Historial de Flores Coins</h2>
         
         {transactions.length === 0 ? (
           <div className="bg-gray-50 p-4 text-center rounded-md">
-            <p className="text-gray-600">No tienes transacciones de puntos.</p>
+            <p className="text-gray-600">No tienes transacciones de Flores Coins.</p>
           </div>
         ) : (
           <>
@@ -443,7 +462,7 @@ const ReferidosPage = () => {
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Puntos</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flores Coins</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expiración</th>
                   </tr>

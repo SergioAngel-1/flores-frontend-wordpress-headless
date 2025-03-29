@@ -7,7 +7,7 @@ interface MainMenuProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   categories: MenuCategory[];
-  openPointsModal: () => void;
+  openFloresCoinsModal: () => void;
 }
 
 // Función auxiliar para formatear texto a formato título (primera letra mayúscula, resto minúsculas)
@@ -20,7 +20,7 @@ const formatTitleCase = (text: string): string => {
     .join(' ');
 };
 
-const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories, openPointsModal }) => {
+const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories, openFloresCoinsModal }) => {
   return (
     <nav className="flex items-center justify-center w-full">
       <div className="flex items-center space-x-8">
@@ -92,10 +92,10 @@ const MainMenu: FC<MainMenuProps> = ({ activeTab, setActiveTab, categories, open
               ? 'border-b-2 border-white' 
               : ''
           }`} 
-          onClick={openPointsModal}
+          onClick={openFloresCoinsModal}
           data-component-name="LinkWithRef"
         >
-          <FiGift className="mr-1" /> Mis puntos
+          <FiGift className="mr-1" /> Mis Flores Coins
         </button>
       </div>
     </nav>

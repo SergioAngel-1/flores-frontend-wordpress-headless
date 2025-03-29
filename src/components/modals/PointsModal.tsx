@@ -5,12 +5,12 @@ import { formatCurrency } from '../../utils/formatters';
 import { pointsService } from '../../services/api';
 import AnimatedModal from '../ui/AnimatedModal';
 
-interface PointsModalProps {
+interface FloresCoinsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface UserPoints {
+interface UserFloresCoins {
   balance: number;
   total_earned: number;
   used: number;
@@ -18,29 +18,29 @@ interface UserPoints {
   conversion_rate: number;
 }
 
-const PointsModal: FC<PointsModalProps> = ({ isOpen, onClose }) => {
-  const [points, setPoints] = useState<UserPoints | null>(null);
+const FloresCoinsModal: FC<FloresCoinsModalProps> = ({ isOpen, onClose }) => {
+  const [floresCoins, setFloresCoins] = useState<UserFloresCoins | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchPoints = async () => {
+    const fetchFloresCoins = async () => {
       if (!isOpen) return;
       
       try {
         setLoading(true);
         const response = await pointsService.getUserPoints();
-        setPoints(response.data);
+        setFloresCoins(response.data);
         setError('');
       } catch (err) {
-        console.error('Error al cargar datos de puntos:', err);
-        setError('No se pudieron cargar los datos de puntos.');
+        console.error('Error al cargar datos de Flores Coins:', err);
+        setError('No se pudieron cargar los datos de Flores Coins.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPoints();
+    fetchFloresCoins();
   }, [isOpen]);
 
   return (
@@ -51,7 +51,7 @@ const PointsModal: FC<PointsModalProps> = ({ isOpen, onClose }) => {
       title={
         <div className="flex items-center text-primario">
           <FiGift className="mr-2" /> 
-          <span>Mis Puntos</span>
+          <span>Mis Flores Coins</span>
         </div>
       }
     >
@@ -71,22 +71,22 @@ const PointsModal: FC<PointsModalProps> = ({ isOpen, onClose }) => {
               Reintentar
             </button>
           </div>
-        ) : points ? (
+        ) : floresCoins ? (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-green-50 p-3 rounded-lg text-center">
-                <p className="text-xs text-gray-600 mb-1">Puntos Disponibles</p>
-                <p className="text-2xl font-bold text-green-600">{points.balance}</p>
+                <p className="text-xs text-gray-600 mb-1">Flores Coins Disponibles</p>
+                <p className="text-2xl font-bold text-green-600">{floresCoins.balance}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Valor: {formatCurrency(points.monetary_value)}
+                  Valor: {formatCurrency(floresCoins.monetary_value)}
                 </p>
               </div>
               
               <div className="bg-yellow-50 p-3 rounded-lg text-center">
                 <p className="text-xs text-gray-600 mb-1">Tipo de Cambio</p>
-                <p className="text-xl font-bold text-yellow-600">{formatCurrency(points.conversion_rate)}</p>
+                <p className="text-xl font-bold text-yellow-600">{formatCurrency(floresCoins.conversion_rate)}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Puntos por peso
+                  Flores Coins por peso
                 </p>
               </div>
             </div>
@@ -94,12 +94,12 @@ const PointsModal: FC<PointsModalProps> = ({ isOpen, onClose }) => {
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-blue-50 p-3 rounded-lg text-center">
                 <p className="text-xs text-gray-600 mb-1">Total Ganados</p>
-                <p className="text-xl font-bold text-blue-600">{points.total_earned}</p>
+                <p className="text-xl font-bold text-blue-600">{floresCoins.total_earned}</p>
               </div>
               
               <div className="bg-purple-50 p-3 rounded-lg text-center">
                 <p className="text-xs text-gray-600 mb-1">Utilizados</p>
-                <p className="text-xl font-bold text-purple-600">{points.used}</p>
+                <p className="text-xl font-bold text-purple-600">{floresCoins.used}</p>
               </div>
             </div>
             
@@ -115,7 +115,7 @@ const PointsModal: FC<PointsModalProps> = ({ isOpen, onClose }) => {
           </div>
         ) : (
           <div className="text-center py-8">
-            <p>No hay información de puntos disponible.</p>
+            <p>No hay información de Flores Coins disponible.</p>
           </div>
         )}
       </div>
@@ -123,4 +123,4 @@ const PointsModal: FC<PointsModalProps> = ({ isOpen, onClose }) => {
   );
 };
 
-export default PointsModal;
+export default FloresCoinsModal;
