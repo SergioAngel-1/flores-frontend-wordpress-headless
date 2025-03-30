@@ -1,5 +1,5 @@
 import { FC, useState, useEffect } from 'react';
-import Modal from '../ui/Modal';
+import AnimatedModal from '../ui/AnimatedModal';
 import { pointsService } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
 import alertify from 'alertifyjs';
@@ -130,11 +130,11 @@ const WalletModal: FC<WalletModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <Modal 
+    <AnimatedModal 
       isOpen={isOpen} 
-      onClose={onClose} 
-      title="Mi Billetera" 
-      className="max-w-lg"
+      onClose={onClose}
+      className="max-w-md"
+      title="Mi Billetera"
     >
       <div className="p-4">
         {loading ? (
@@ -275,7 +275,7 @@ const WalletModal: FC<WalletModalProps> = ({ isOpen, onClose }) => {
           </>
         )}
       </div>
-    </Modal>
+    </AnimatedModal>
   );
 };
 

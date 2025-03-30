@@ -3,14 +3,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import ProfileSection from './sections/ProfileSection';
 import AddressesSection from './sections/AddressesSection';
 import OrdersSection from './sections/OrdersSection';
-import FavoritesSection from './sections/FavoritesSection';
+import ReferralsSection from './sections/ReferralsSection';
 import alertService from '../../services/alertService';
 import AnimatedModal from '../ui/AnimatedModal';
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  activeSection?: 'profile' | 'addresses' | 'orders' | 'favorites';
+  activeSection?: 'profile' | 'addresses' | 'orders' | 'referrals';
 }
 
 const ProfileModal = ({ isOpen, onClose, activeSection = 'profile' }: ProfileModalProps) => {
@@ -81,14 +81,14 @@ const ProfileModal = ({ isOpen, onClose, activeSection = 'profile' }: ProfileMod
             
             <button
               className={`w-full text-left p-3 rounded-md flex items-center space-x-2 transition-colors ${
-                activeTab === 'favorites' ? 'bg-primario text-white' : 'hover:bg-gray-200'
+                activeTab === 'referrals' ? 'bg-primario text-white' : 'hover:bg-gray-200'
               }`}
-              onClick={() => setActiveTab('favorites')}
+              onClick={() => setActiveTab('referrals')}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span>Favoritos</span>
+              <span>Mis Referidos</span>
             </button>
             
             <div className="pt-4 mt-4 border-t border-gray-200">
@@ -110,7 +110,7 @@ const ProfileModal = ({ isOpen, onClose, activeSection = 'profile' }: ProfileMod
           {activeTab === 'profile' && <ProfileSection />}
           {activeTab === 'addresses' && <AddressesSection />}
           {activeTab === 'orders' && <OrdersSection />}
-          {activeTab === 'favorites' && <FavoritesSection />}
+          {activeTab === 'referrals' && <ReferralsSection onClose={onClose} />}
         </div>
       </div>
     </AnimatedModal>

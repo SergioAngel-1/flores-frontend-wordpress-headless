@@ -47,7 +47,21 @@ const CheckoutPage = () => {
     recipientFirstName: '',
     recipientLastName: '',
     recipientPhone: '',
+    // Nuevo campo para envío premium
+    premiumShipping: false,
   });
+
+  // Calcular el total del pedido (incluyendo envío premium si está seleccionado)
+  const calculateOrderTotal = () => {
+    let orderTotal = total;
+    
+    // Añadir costo de envío premium si está seleccionado
+    if (formData.premiumShipping) {
+      orderTotal += 15000; // 15000 COP por envío premium
+    }
+    
+    return orderTotal;
+  };
 
   // Cargar items del carrito
   useEffect(() => {
@@ -232,6 +246,27 @@ const CheckoutPage = () => {
         line_items,
         customer_id: user?.id || 0,
         customer_note: isGift ? "Este pedido es un regalo" : "",
+        shipping_lines: [
+          {
+            method_id: formData.premiumShipping ? 'premium_shipping' : 'flat_rate',
+            method_title: formData.premiumShipping ? 'Envío Premium' : 'Envío Estándar',
+            total: formData.premiumShipping ? '15000' : '0',
+          }
+        ],
+        meta_data: [
+          {
+            key: '_is_gift',
+            value: isGift ? 'yes' : 'no'
+          },
+          {
+            key: '_recipient_phone',
+            value: isGift ? formData.recipientPhone : ''
+          },
+          {
+            key: '_premium_shipping',
+            value: formData.premiumShipping ? 'yes' : 'no'
+          }
+        ]
       };
       
       console.log('Enviando pedido a WooCommerce:', orderData);
@@ -637,6 +672,47 @@ const CheckoutPage = () => {
               </div>
             )}
             
+            {/* Nueva sección de opciones de envío */}
+            <h2 className="text-xl font-medium text-oscuro mb-6 mt-8 checkout-animate">Opciones de envío</h2>
+            
+            <div className="mb-8 checkout-animate bg-gray-50 rounded-lg p-4">
+              <div className="flex flex-col space-y-4">
+                <label className="flex items-start space-x-3 p-3 bg-white rounded border border-gray-200 cursor-pointer hover:border-primario transition-colors">
+                  <input
+                    type="radio"
+                    name="premiumShipping"
+                    checked={!formData.premiumShipping}
+                    onChange={() => setFormData({...formData, premiumShipping: false})}
+                    className="mt-1 h-4 w-4 text-primario border-gray-300 focus:ring-primario"
+                  />
+                  <div className="flex-1">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-900">Envío Estándar</span>
+                      <span className="font-medium text-gray-900">Gratis</span>
+                    </div>
+                    <p className="text-gray-500 text-sm mt-1">Entrega en 5-6 horas hábiles</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-start space-x-3 p-3 bg-white rounded border border-gray-200 cursor-pointer hover:border-primario transition-colors">
+                  <input
+                    type="radio"
+                    name="premiumShipping"
+                    checked={formData.premiumShipping}
+                    onChange={() => setFormData({...formData, premiumShipping: true})}
+                    className="mt-1 h-4 w-4 text-primario border-gray-300 focus:ring-primario"
+                  />
+                  <div className="flex-1">
+                    <div className="flex justify-between">
+                      <span className="font-medium text-gray-900">Envío Premium</span>
+                      <span className="font-medium text-primario">{formatPrice(15000)}</span>
+                    </div>
+                    <p className="text-gray-500 text-sm mt-1">Entrega en menos de 1 hora hábil.</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+            
             <h2 className="text-xl font-medium text-oscuro mb-6 checkout-animate">Método de pago</h2>
             
             <div className="mb-8 checkout-animate">
@@ -797,21 +873,16 @@ const CheckoutPage = () => {
               ))}
             </div>
             
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span>Subtotal</span>
-                <span>{formatPrice(total)}</span>
-              </div>
+            <div className="space-y-1 text-right">
+              <p className="text-sm text-gray-500">Subtotal <span className="text-oscuro font-medium">{formatPrice(total)}</span></p>
               
-              <div className="flex justify-between text-sm">
-                <span>Envío</span>
-                <span>{formatPrice(0)}</span>
-              </div>
+              {formData.premiumShipping && (
+                <p className="text-sm text-gray-500">Envío Premium <span className="text-oscuro font-medium">{formatPrice(15000)}</span></p>
+              )}
               
-              <div className="flex justify-between font-semibold text-lg pt-3 border-t border-gray-200">
-                <span>Total</span>
-                <span className="text-primario">{formatPrice(total)}</span>
-              </div>
+              <p className="text-lg font-semibold text-gray-900">
+                Total <span className="text-primario">{formatPrice(calculateOrderTotal())}</span>
+              </p>
             </div>
           </div>
         </div>
