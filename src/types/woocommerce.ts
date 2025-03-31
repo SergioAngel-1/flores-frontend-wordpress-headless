@@ -185,8 +185,12 @@ export interface LineItem {
 }
 
 export interface CartItem {
-  id: number;
-  product: Product;
+  product_id: number;
+  product_name: string;
+  price: string;
+  regular_price?: string;
+  sale_price?: string;
+  image?: string;
   quantity: number;
   variation_id?: number;
   variation?: any;

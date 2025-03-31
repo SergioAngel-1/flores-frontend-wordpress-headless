@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@react-pdf/renderer": "^4.3.0",
     "alertifyjs": "^1.14.0",
     "crypto-js": "^4.2.0",
     "oauth-1.0a": "^2.2.6",

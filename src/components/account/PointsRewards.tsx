@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_URL } from '../../config';
+import { api } from '../../services/apiConfig';
+import { pointsService } from '../../services/api';
 import { useAuth } from '../../hooks/useAuth';
 import styled from 'styled-components';
 import { FaCoins, FaUsers, FaCopy, FaFacebook, FaWhatsapp } from 'react-icons/fa';
@@ -46,7 +46,7 @@ interface ReferralStats {
 
 // Componente principal
 const PointsRewards: React.FC = () => {
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions' | 'referrals'>('summary');
   const [userPoints, setUserPoints] = useState<UserPoints | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -72,13 +72,11 @@ const PointsRewards: React.FC = () => {
   const fetchUserPoints = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/floresinc/v1/points`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await pointsService.getUserPoints();
       setUserPoints(response.data);
       setError(null);
     } catch (err) {
-      setError('Error al cargar los puntos');
+      setError('Error al cargar tus puntos');
       console.error(err);
     } finally {
       setLoading(false);
@@ -88,13 +86,11 @@ const PointsRewards: React.FC = () => {
   const fetchTransactions = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/floresinc/v1/points/transactions`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await pointsService.getPointsTransactions();
       setTransactions(response.data.transactions);
       setError(null);
     } catch (err) {
-      setError('Error al cargar las transacciones');
+      setError('Error al cargar el historial de transacciones');
       console.error(err);
     } finally {
       setLoading(false);
@@ -104,14 +100,12 @@ const PointsRewards: React.FC = () => {
   const fetchReferrals = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/floresinc/v1/referrals`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await pointsService.getReferralStats();
       setReferrals(response.data.referrals);
       setReferralStats(response.data);
       setError(null);
     } catch (err) {
-      setError('Error al cargar los referidos');
+      setError('Error al cargar tus referidos');
       console.error(err);
     } finally {
       setLoading(false);
@@ -120,9 +114,7 @@ const PointsRewards: React.FC = () => {
 
   const fetchReferralCode = async () => {
     try {
-      const response = await axios.get(`${API_URL}/floresinc/v1/referrals/code`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await pointsService.getReferralCode();
       setReferralCode(response.data);
     } catch (err) {
       console.error(err);

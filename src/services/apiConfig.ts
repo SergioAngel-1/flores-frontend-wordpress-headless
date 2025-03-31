@@ -10,8 +10,11 @@ let lastErrorTime = 0;
 const ERROR_COOLDOWN = 10000; // 10 segundos entre alertas
 
 // Claves para WooCommerce API (OAuth)
-export const consumerKey = 'ck_ffbe931e6b1611cfc1deaa8c2c12c8c7daca4666';
-export const consumerSecret = 'cs_5cb79deb6660f34684be577ceedee76c8cd6a4aa';
+export const consumerKey = import.meta.env.VITE_WC_CONSUMER_KEY || 'ck_ffbe931e6b1611cfc1deaa8c2c12c8c7daca4666';
+export const consumerSecret = import.meta.env.VITE_WC_CONSUMER_SECRET || 'cs_5cb79deb6660f34684be577ceedee76c8cd6a4aa';
+
+// Obtener la URL base de las variables de entorno o usar un valor predeterminado
+export const baseApiUrl = import.meta.env.VITE_WP_API_URL || 'http://flores.local';
 
 // Configuración de OAuth 1.0a
 export const oauth = new OAuth({
@@ -43,7 +46,8 @@ export const wooCommerceApi = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
-  }
+  },
+  withCredentials: true  // Habilitar cookies para mantener la sesión
 });
 
 // Interceptor para añadir los parámetros OAuth a cada solicitud
@@ -52,7 +56,7 @@ wooCommerceApi.interceptors.request.use(config => {
   config.params = config.params || {};
   
   // Construir la URL completa para la firma OAuth
-  const urlObj = new URL(`http://flores.local/wp-json/wc/v3${config.url || ''}`);
+  const urlObj = new URL(`${baseApiUrl}/wp-json/wc/v3${config.url || ''}`);
   
   // Añadir parámetros existentes a la URL
   Object.entries(config.params).forEach(([key, value]) => {
@@ -99,51 +103,71 @@ wooCommerceApi.interceptors.response.use(
       // Respuesta del servidor con error
       console.error(`Error ${error.response.status}:`, error.response.data);
       
-      // Registrar payload de la solicitud en caso de error
-      if (error.config) {
-        console.log('Request data:', {
-          url: error.config.url,
-          method: error.config.method,
-          params: error.config.params,
-          data: error.config.data
-        });
-      }
-      
-      // Mostrar mensaje amigable al usuario en caso de error de servidor
-      if (error.response.status === 502) {
-        const currentTime = new Date().getTime();
-        if (!serverErrorShown || currentTime - lastErrorTime > ERROR_COOLDOWN) {
-          showServerErrorAlert();
+      // Mostrar alerta solo si es un error 500 y no se ha mostrado recientemente
+      if (error.response.status >= 500 && error.response.status < 600) {
+        const currentTime = Date.now();
+        
+        if (!serverErrorShown || (currentTime - lastErrorTime > ERROR_COOLDOWN)) {
           serverErrorShown = true;
           lastErrorTime = currentTime;
+          
+          showServerErrorAlert();
+          
+          // Resetear el flag después del cooldown
+          setTimeout(() => {
+            serverErrorShown = false;
+          }, ERROR_COOLDOWN);
         }
       }
     } else if (error.request) {
-      console.error('Error de red:', error.request);
+      // Solicitud realizada pero sin respuesta
+      console.error('Error de conexión:', error.message);
+      
+      // Mostrar alerta solo si no se ha mostrado recientemente
+      const currentTime = Date.now();
+      
+      if (!serverErrorShown || (currentTime - lastErrorTime > ERROR_COOLDOWN)) {
+        serverErrorShown = true;
+        lastErrorTime = currentTime;
+        
+        showServerErrorAlert();
+        
+        // Resetear el flag después del cooldown
+        setTimeout(() => {
+          serverErrorShown = false;
+        }, ERROR_COOLDOWN);
+      }
     } else {
-      console.error('Error:', error.message);
+      // Error al configurar la solicitud
+      console.error('Error al configurar la solicitud:', error.message);
     }
+    
     return Promise.reject(error);
   }
 );
 
-// Instancia normal de axios para otras peticiones
-export const axiosInstance = axios.create({
-  timeout: 10000
+// Configurar una instancia global de Axios para las demás peticiones
+export const api = axios.create({
+  baseURL: '/wp-json',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+  withCredentials: true // Habilitar cookies para mantener la sesión
 });
 
-// Interceptor para añadir token JWT a las peticiones autenticadas
-axiosInstance.interceptors.request.use(config => {
-  const token = localStorage.getItem('jwt_token');
-  
-  // Si hay token JWT disponible y la url contiene wp-json, añadirlo a las cabeceras
-  if (token && config.url && config.url.includes('/wp-json/')) {
-    config.headers = config.headers || {};
-    config.headers['Authorization'] = `Bearer ${token}`;
+// Interceptor para los logs de peticiones
+api.interceptors.request.use(
+  config => {
+    console.log(`Petición ${config.method?.toUpperCase()} a ${config.url}`);
+    return config;
+  },
+  error => {
+    console.error('Error en la configuración de la petición:', error);
+    return Promise.reject(error);
   }
-  
-  return config;
-});
+);
 
 // Exportar tipos comunes
 export interface User {

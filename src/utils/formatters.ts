@@ -4,8 +4,37 @@
  * @returns Cadena formateada como moneda
  */
 export const formatCurrency = (amount: number | string): string => {
-  // Convertir a número si es una cadena
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (amount === undefined || amount === null) {
+    return 'COP 0';
+  }
+  
+  // Si es una cadena, primero la limpiamos de cualquier formato existente
+  let numAmount: number;
+  
+  if (typeof amount === 'string') {
+    // Eliminar prefijo de moneda, espacios y otros caracteres no numéricos
+    let cleanAmount = amount.replace(/COP\s*/, '').trim();
+    
+    // Si tiene puntos como separadores de miles (formato Colombia)
+    if (cleanAmount.includes('.') && cleanAmount.indexOf('.') < cleanAmount.lastIndexOf('.')) {
+      cleanAmount = cleanAmount.replace(/\./g, '');
+    }
+    
+    // Si usa comas como separadores de miles y hay al menos una
+    if (cleanAmount.includes(',') && cleanAmount.indexOf(',') < cleanAmount.length - 3) {
+      cleanAmount = cleanAmount.replace(/,/g, '');
+    }
+    
+    numAmount = parseFloat(cleanAmount);
+    
+    // Si no se pudo convertir, devolver 0
+    if (isNaN(numAmount)) {
+      console.warn(`formatCurrency: No se pudo convertir "${amount}" a número`);
+      return 'COP 0';
+    }
+  } else {
+    numAmount = amount;
+  }
   
   // Formatear como COP sin decimales
   return `COP ${numAmount.toLocaleString('es-CO', {

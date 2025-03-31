@@ -4,6 +4,7 @@ import { cartService } from '../../services/api';
 import { formatCurrency } from '../../utils/formatters';
 import { CartItem } from '../../types/woocommerce';
 import ScrollToTopLink from '../common/ScrollToTopLink';
+import alertService from '../../services/alertService'; // Importación correcta
 
 interface CartModalProps {
   isOpen: boolean;
@@ -28,32 +29,55 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
     };
 
     window.addEventListener('cart-updated', handleCartUpdated);
+    
+    // Cargar items del carrito al montar el componente
+    loadCartItems();
+    
     return () => window.removeEventListener('cart-updated', handleCartUpdated);
   }, []);
 
   const loadCartItems = () => {
     try {
       const items = cartService.getItems();
-      console.log('CartModal: Items cargados:', items);
+      console.log('CartModal: Items cargados (detallado):', JSON.stringify(items, null, 2));
       
+      // Añadir logging detallado para cada item
       if (items && Array.isArray(items)) {
-        // Filtrar items inválidos (sin producto o sin datos completos)
+        items.forEach((item, index) => {
+          console.log(`Item [${index}]:`, {
+            id: item.product_id,
+            nombre: item.product_name,
+            precio_original: item.price,
+            precio_tipo: typeof item.price,
+            cantidad: item.quantity
+          });
+        });
+      
+        // Filtrar items inválidos (sin datos completos)
         const validItems = items.filter(item => 
           item && 
-          item.product && 
-          item.product.id && 
-          item.product.name
+          item.product_id && 
+          item.product_name
         );
         
+        // Actualizar estado
         setCartItems(validItems);
+        
+        try {
+          const cartTotal = cartService.getTotal();
+          console.log('CartModal: Total calculado:', cartTotal, 'Tipo:', typeof cartTotal);
+          setTotal(cartTotal);
+        } catch (err) {
+          console.error('Error al calcular el total:', err);
+          setTotal(0);
+        }
       } else {
-        console.error('CartModal: Formato de items inválido:', items);
+        console.warn('No se encontraron items en el carrito o formato inesperado');
         setCartItems([]);
+        setTotal(0);
       }
-      
-      setTotal(cartService.getTotal());
     } catch (error) {
-      console.error('CartModal: Error al cargar items:', error);
+      console.error('Error al cargar los items del carrito:', error);
       setCartItems([]);
       setTotal(0);
     }
@@ -66,6 +90,8 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
     }
     
     cartService.updateItemQuantity(productId, newQuantity);
+    
+    // Cargar inmediatamente para actualizar la UI
     loadCartItems();
     
     // Disparar evento para actualizar el contador del carrito en el header
@@ -73,7 +99,17 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleRemoveItem = (productId: number) => {
+    // Buscar el producto para poder mostrar su nombre en la alerta
+    const itemToRemove = cartItems.find(item => item.product_id === productId);
+    const productName = itemToRemove ? itemToRemove.product_name : 'Producto';
+    
+    // Eliminar el producto del carrito
     cartService.removeItem(productId);
+    
+    // Mostrar alerta de producto eliminado
+    alertService.info(`${productName} eliminado del carrito`);
+    
+    // Cargar inmediatamente para actualizar la UI
     loadCartItems();
     
     // Disparar evento para actualizar el contador del carrito en el header
@@ -117,7 +153,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
             <p className="text-gray-500 text-center mb-4">Tu carrito está vacío</p>
             <ScrollToTopLink 
               to="/tienda" 
-              className="bg-primario text-white py-2 px-4 rounded hover:bg-hover transition-colors"
+              className="bg-primario text-white py-2 px-4 rounded hover:bg-primario/10 transition-colors"
               onClick={onClose}
             >
               Ver productos
@@ -127,10 +163,10 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
           <div className="overflow-auto h-[calc(100vh-180px)]">
             <div className="divide-y divide-gray-200">
               {cartItems.map((item) => (
-                <div key={item.product.id} className="p-4 flex items-center" data-component-name="CartModal">
+                <div key={item.product_id} className="p-4 flex items-center" data-component-name="CartModal">
                   <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                    {item.product.images && item.product.images.length > 0 && item.product.images[0].src ? (
-                      <img src={item.product.images[0].src} alt={item.product.name} className="w-full h-full object-cover" />
+                    {item.image ? (
+                      <img src={item.image} alt={item.product_name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gray-200">
                         <span className="text-2xl">🛍️</span>
@@ -139,15 +175,15 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                   </div>
                   
                   <div className="ml-4 flex-grow">
-                    <h3 className="font-medium text-sm line-clamp-2">{item.product.name}</h3>
-                    <p className="text-primario font-bold mt-1">
-                      {formatCurrency(item.product.price)}
+                    <h3 className="font-medium text-sm line-clamp-2">{item.product_name}</h3>
+                    <p className="text-primario font-bold mt-1" data-component-name="CartModal">
+                      {item.price}
                     </p>
                     
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center border border-gray-300 rounded">
                         <button 
-                          onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() => handleUpdateQuantity(item.product_id, item.quantity - 1)}
                           className="px-2 py-1 text-gray-500 hover:text-primario transition-all"
                           aria-label="Disminuir cantidad"
                         >
@@ -155,7 +191,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                         </button>
                         <span className="px-2 py-1 min-w-[30px] text-center">{item.quantity}</span>
                         <button 
-                          onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() => handleUpdateQuantity(item.product_id, item.quantity + 1)}
                           className="px-2 py-1 text-gray-500 hover:text-primario transition-all"
                           aria-label="Aumentar cantidad"
                         >
@@ -164,7 +200,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                       </div>
                       
                       <button 
-                        onClick={() => handleRemoveItem(item.product.id)}
+                        onClick={() => handleRemoveItem(item.product_id)}
                         className="text-red-500 hover:text-red-700 p-1 transition-all"
                         aria-label="Eliminar producto"
                       >
@@ -183,7 +219,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
           <div className="flex justify-between items-center mb-4">
             <span className="font-medium">Total:</span>
             <span className="text-xl font-bold text-primario">
-              {formatCurrency(total)}
+              {total ? formatCurrency(total) : 'COP 0'}
             </span>
           </div>
           
@@ -197,7 +233,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
             </ScrollToTopLink>
             <ScrollToTopLink 
               to="/checkout" 
-              className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-hover transition-colors"
+              className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-primario/10 transition-colors"
               onClick={onClose}
             >
               Finalizar compra

@@ -4,10 +4,10 @@ import { pointsService } from '../../../services/api';
 import { FiUsers, FiLink, FiArrowRight } from 'react-icons/fi';
 
 interface ReferralStats {
-  referrals_count: number;
-  approved_referrals: number;
-  pending_referrals: number;
-  points_earned: number;
+  total_referrals: number;
+  direct_referrals: number;
+  indirect_referrals: number;
+  total_points_generated: number;
   referral_code: string;
 }
 
@@ -31,10 +31,10 @@ const ReferralsSection = ({ onClose }: ReferralsSectionProps) => {
         
         if (statsResponse?.data && codeResponse?.data?.code) {
           setStats({
-            referrals_count: statsResponse.data.referrals_count || 0,
-            approved_referrals: statsResponse.data.approved_referrals || 0,
-            pending_referrals: statsResponse.data.pending_referrals || 0,
-            points_earned: statsResponse.data.points_earned || 0,
+            total_referrals: statsResponse.data.total_referrals || 0,
+            direct_referrals: statsResponse.data.direct_referrals || 0,
+            indirect_referrals: statsResponse.data.indirect_referrals || 0,
+            total_points_generated: statsResponse.data.total_points_generated || 0,
             referral_code: codeResponse.data.code
           });
         }
@@ -82,11 +82,11 @@ const ReferralsSection = ({ onClose }: ReferralsSectionProps) => {
             <div className="flex items-center space-x-2 mb-2">
               <div className="flex items-center bg-white/20 rounded px-2 py-1">
                 <FiUsers className="mr-1" />
-                <span>Referidos: <strong>{stats?.referrals_count || 0}</strong></span>
+                <span>Referidos: <strong>{stats?.total_referrals || 0}</strong></span>
               </div>
               
               <div className="flex items-center bg-white/20 rounded px-2 py-1">
-                <span>Puntos ganados: <strong>{stats?.points_earned || 0}</strong></span>
+                <span>Puntos ganados: <strong>{stats?.total_points_generated || 0}</strong></span>
               </div>
             </div>
           </div>

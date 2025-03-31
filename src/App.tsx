@@ -12,6 +12,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsConditionsPage from './pages/TermsConditionsPage'
 import ContactPage from './pages/ContactPage'
 import ReferidosPage from './pages/ReferidosPage'
+import CatalogosPage from './pages/CatalogosPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import AuthModals from './components/auth/AuthModals'
 import './index.css'
@@ -65,6 +66,7 @@ function AppContent() {
             <Route path="/privacidad" element={<PrivacyPolicyPage />} />
             <Route path="/terminos" element={<TermsConditionsPage />} />
             <Route path="/contacto" element={<ContactPage />} />
+            <Route path="/catalogos" element={<CatalogosPage />} />
             <Route path="/login" element={<Navigate to="/" />} />
             <Route path="*" element={
               <div className="container mx-auto px-4 py-20 text-center">

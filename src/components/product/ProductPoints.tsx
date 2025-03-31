@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { API_URL } from '../../config';
+import { api } from '../../services/apiConfig';
 import styled from 'styled-components';
 import { FaCoins } from 'react-icons/fa';
 
@@ -22,7 +21,7 @@ const ProductPoints: React.FC<ProductPointsProps> = ({ productId }) => {
     const fetchProductPoints = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${API_URL}/floresinc/v1/product/${productId}/points`);
+        const response = await api.get(`/floresinc/v1/product/${productId}/points`);
         setPointsData(response.data);
         setError(null);
       } catch (err) {
