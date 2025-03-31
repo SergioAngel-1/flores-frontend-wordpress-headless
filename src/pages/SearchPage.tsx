@@ -3,17 +3,19 @@ import { useLocation } from 'react-router-dom';
 import { useSearchProducts } from '../hooks/useWooCommerce';
 import { Product } from '../types/woocommerce';
 import { Link } from 'react-router-dom';
+import { useCart } from '../contexts/CartContext';
+import alertService from '../services/alertService';
 
 // Componente ProductCard inline para evitar problemas de importación
 const ProductCard = ({ product }: { product: Product }) => {
+  const { addItem } = useCart();
+  
   const handleAddToCart = () => {
-    // Implementación simple para añadir al carrito
-    const cartItems = JSON.parse(localStorage.getItem('cart') || '[]');
-    cartItems.push(product);
-    localStorage.setItem('cart', JSON.stringify(cartItems));
+    // Utilizar el contexto del carrito para añadir el producto
+    addItem(product);
     
-    // Disparar evento personalizado para actualizar el contador del carrito
-    window.dispatchEvent(new CustomEvent('cart-updated'));
+    // Mostrar alerta de producto añadido
+    alertService.success(`${product.name} añadido al carrito`);
   };
   
   return (

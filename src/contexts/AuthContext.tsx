@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { api } from '../services/apiConfig';
 import { authService } from '../services/api';
 import { AxiosError } from 'axios';
+import logger from '../utils/logger';
 
 // Tipo para las direcciones
 export interface Address {
@@ -32,14 +33,6 @@ interface User {
   gender?: string;
   newsletter?: boolean;
   active?: boolean;
-}
-
-// Tipo para la respuesta de autenticación
-interface AuthResponse {
-  token: string;
-  user_email?: string;
-  user_nicename?: string;
-  user_display_name?: string;
 }
 
 interface AuthContextType {
@@ -89,20 +82,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        logger.info('AuthContext', 'Verificando autenticación...');
         setLoading(true);
         const token = localStorage.getItem('authToken');
         
-        if (token) {
-          // Configurar el token en los headers para todas las solicitudes
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          
+        if (!token) {
+          logger.info('AuthContext', 'No hay token almacenado');
+          setIsAuthenticated(false);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+        
+        // Configurar el token en los headers para todas las solicitudes
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        try {
           // Obtener datos del usuario
+          logger.info('AuthContext', 'Obteniendo datos del usuario con token existente');
           const response = await api.get('/wp/v2/users/me');
           
           if (response.data) {
-            console.log('Datos del usuario obtenidos:', response.data); // Depuración
+            logger.info('AuthContext', 'Datos del usuario obtenidos', response.data.id);
             
-            setUser({
+            const userData = {
               id: response.data.id,
               name: response.data.name,
               email: response.data.email || '', // Asegurarse de que el email no sea undefined
@@ -117,13 +120,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               gender: response.data.gender || '',
               newsletter: response.data.newsletter || false,
               active: response.data.active || false
-            });
+            };
+            
+            setUser(userData);
             setIsAuthenticated(true);
             setIsPending(response.data.pending || false);
           }
+        } catch (error) {
+          logger.error('AuthContext', 'Error al obtener datos del usuario', error);
+          // El token puede ser inválido o estar expirado
+          logout();
         }
       } catch (error) {
-        console.error('Error al verificar autenticación:', error);
+        logger.error('AuthContext', 'Error general al verificar autenticación', error);
         logout(); // Limpiar token si hay error
       } finally {
         setLoading(false);
@@ -136,9 +145,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función para obtener el usuario actual
   const getCurrentUser = async (): Promise<User | null> => {
     try {
+      logger.info('AuthContext', 'Obteniendo datos del usuario actual');
       const token = localStorage.getItem('authToken');
       
       if (!token) {
+        logger.info('AuthContext', 'No hay token para obtener usuario');
         return null;
       }
       
@@ -175,7 +186,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       return null;
     } catch (error) {
-      console.error('Error al obtener usuario actual:', error);
+      logger.error('AuthContext', 'Error al obtener usuario actual', error);
       logout(); // Limpiar token si hay error
       return null;
     }
@@ -185,46 +196,110 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('Iniciando sesión con:', { identifier });
+      logger.info('AuthContext', 'Iniciando sesión con:', { identifier });
       
-      const response = await authService.login(identifier, password);
-      const authResponse = response as unknown as AuthResponse;
-      
-      if (authResponse.token) {
-        localStorage.setItem('authToken', authResponse.token);
-        api.defaults.headers.common['Authorization'] = `Bearer ${authResponse.token}`;
+      try {
+        // Intentar el login normal
+        const response = await authService.login(identifier, password);
         
-        // Obtener datos del usuario
-        const userResponse = await api.get('/wp/v2/users/me');
+        // Verificar que el token esté configurado correctamente
+        const token = localStorage.getItem('authToken');
+        if (!token) {
+          logger.error('AuthContext', 'No se encontró token después del login');
+          setError('Error en autenticación: Token no disponible');
+          return false;
+        }
         
-        setUser({
-          id: userResponse.data.id,
-          name: userResponse.data.name,
-          email: userResponse.data.email,
-          avatar: userResponse.data.avatar_urls?.['96'] || '',
-          addresses: userResponse.data.addresses || [],
-          defaultAddress: userResponse.data.defaultAddress || null,
-          pending: userResponse.data.pending || false,
-          firstName: userResponse.data.first_name || userResponse.data.firstName || '',
-          lastName: userResponse.data.last_name || userResponse.data.lastName || '',
-          phone: userResponse.data.phone || '',
-          birthDate: userResponse.data.birthDate || '',
-          gender: userResponse.data.gender || '',
-          newsletter: userResponse.data.newsletter || false,
-          active: userResponse.data.active || false
-        });
+        // Asegurar que el token esté configurado en los headers
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         
-        setIsAuthenticated(true);
-        setIsPending(userResponse.data.pending || false);
+        // Actualizar el estado con los datos del usuario
+        if (response && response.id) {
+          setUser({
+            id: response.id,
+            name: response.displayName || response.username,
+            email: response.email || '',
+            avatar: '',
+            addresses: [],
+            defaultAddress: null,
+            pending: response.pending || false,
+            firstName: response.firstName || '',
+            lastName: response.lastName || '',
+            phone: response.phone || '',
+            birthDate: response.birthDate || '',
+            gender: response.gender || '',
+            newsletter: response.newsletter || false,
+            active: true
+          });
+          
+          setIsAuthenticated(true);
+          setIsPending(response.pending || false);
+          logger.info('AuthContext', 'Usuario autenticado correctamente');
+          return true;
+        }
+      } catch (loginError) {
+        logger.error('AuthContext', 'Error en primera fase de login', loginError);
         
-        return true;
+        // A pesar del error, verificar si tenemos un token
+        // Esto puede ocurrir si WordPress devuelve un código 500 pero aún así establece el token
+        const token = localStorage.getItem('authToken');
+        
+        if (token) {
+          logger.warn('AuthContext', 'Error en login pero token existente, intentando recuperar sesión');
+          
+          // Configurar el token y verificar si es válido obteniendo datos del usuario
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          
+          try {
+            // Intentar obtener el perfil del usuario para verificar que el token es válido
+            const userResponse = await api.get('/wp/v2/users/me');
+            
+            if (userResponse && userResponse.data && userResponse.data.id) {
+              logger.info('AuthContext', 'Recuperación exitosa, token es válido');
+              
+              // Crear un objeto de usuario básico con los datos disponibles
+              const wpUser = userResponse.data;
+              setUser({
+                id: wpUser.id,
+                name: wpUser.name,
+                email: wpUser.email || '',
+                avatar: wpUser.avatar_urls?.['96'] || '',
+                addresses: [],
+                defaultAddress: null,
+                pending: false,
+                firstName: wpUser.first_name || '',
+                lastName: wpUser.last_name || '',
+                phone: '',
+                birthDate: '',
+                gender: '',
+                newsletter: false,
+                active: true
+              });
+              
+              setIsAuthenticated(true);
+              
+              // ¡La recuperación funcionó!
+              return true;
+            }
+          } catch (recoveryError) {
+            logger.error('AuthContext', 'El token no es válido a pesar de existir', recoveryError);
+            localStorage.removeItem('authToken');
+            delete api.defaults.headers.common['Authorization'];
+          }
+        }
+        
+        // Si llegamos aquí, no pudimos recuperar la sesión
+        setError('Credenciales incorrectas. Por favor, intenta de nuevo.');
+        return false;
       }
       
-      return false; // Si no hay token en la respuesta
-    } catch (err: unknown) {
-      console.error('Error al iniciar sesión:', err);
-      setError('Credenciales incorrectas. Por favor, intenta de nuevo.');
-      throw err;
+      // Si el flujo normal falló pero no lanzó una excepción
+      setError('No se pudo completar el proceso de autenticación');
+      return false;
+    } catch (error) {
+      logger.error('AuthContext', 'Error general al iniciar sesión', error);
+      setError('Error al iniciar sesión. Por favor, intenta de nuevo.');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -253,7 +328,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // No iniciamos sesión automáticamente porque el usuario debe ser aprobado por un administrador
     } catch (err: unknown) {
-      console.error('Error al registrarse:', err);
+      logger.error('AuthContext', 'Error al registrarse', err);
       
       const axiosError = err as AxiosError<{message?: string}>;
       if (axiosError.response && axiosError.response.data) {
@@ -302,7 +377,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Error al guardar la dirección');
       }
     } catch (error: any) {
-      console.error('Error al guardar dirección:', error);
+      logger.error('AuthContext', 'Error al guardar dirección', error);
       setError(error.message || 'Error al guardar la dirección');
       throw error;
     } finally {
@@ -335,7 +410,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Error al eliminar la dirección');
       }
     } catch (error: any) {
-      console.error('Error al eliminar dirección:', error);
+      logger.error('AuthContext', 'Error al eliminar dirección', error);
       setError(error.message || 'Error al eliminar la dirección');
       throw error;
     } finally {
@@ -368,7 +443,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Error al establecer la dirección predeterminada');
       }
     } catch (error: any) {
-      console.error('Error al establecer dirección predeterminada:', error);
+      logger.error('AuthContext', 'Error al establecer dirección predeterminada', error);
       setError(error.message || 'Error al establecer la dirección predeterminada');
       throw error;
     } finally {
@@ -381,12 +456,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setLoading(true);
       setError(null);
       
-      console.log('Datos enviados a la API:', profileData); // Depuración
+      logger.info('AuthContext', 'Datos enviados a la API:', profileData); // Depuración
       
       // Usar el endpoint correcto que está registrado en user-profile-functions.php
       const response = await api.post('/floresinc/v1/user/profile', profileData);
       
-      console.log('Respuesta del servidor:', response.data); // Depuración
+      logger.info('AuthContext', 'Respuesta del servidor:', response.data); // Depuración
       
       if (response.data.success) {
         // Si el servidor devuelve los datos del usuario, usarlos directamente
@@ -394,7 +469,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(prev => {
             if (!prev) return null;
             
-            console.log('Actualizando usuario con datos del servidor:', response.data.user); // Depuración
+            logger.info('AuthContext', 'Actualizando usuario con datos del servidor:', response.data.user); // Depuración
             
             return {
               ...prev,
@@ -438,7 +513,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               });
             }
           } catch (error) {
-            console.error('Error al recargar datos del usuario:', error);
+            logger.error('AuthContext', 'Error al recargar datos del usuario', error);
             // Si falla la recarga, actualizamos con los datos enviados
             setUser(prev => {
               if (!prev) return null;
@@ -450,7 +525,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Error al actualizar el perfil');
       }
     } catch (error: any) {
-      console.error('Error al actualizar perfil:', error);
+      logger.error('AuthContext', 'Error al actualizar perfil', error);
       setError(error.message || 'Error al actualizar el perfil');
       throw error;
     } finally {

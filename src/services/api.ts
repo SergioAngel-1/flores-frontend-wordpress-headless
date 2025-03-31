@@ -1,4 +1,7 @@
-import { api, wooCommerceApi } from './apiConfig';
+import { api, wooCommerceApi, baseApiUrl } from './apiConfig';
+
+// Imprimir información de configuración
+console.log(`API configurada con URL base: ${baseApiUrl}`);
 
 // Interfaces y tipos
 interface User {
@@ -16,37 +19,105 @@ interface User {
   newsletter?: boolean;
 }
 
+// Función para extraer mensajes de error legibles
+const getReadableErrorMessage = (error: any): string => {
+  if (error.response) {
+    // El servidor respondió con un código de error
+    if (error.response.status === 403) {
+      return 'Usuario o contraseña incorrectos';
+    } else if (error.response.data && typeof error.response.data === 'string' && error.response.data.includes('error crítico')) {
+      return 'Error en el servidor WordPress. Por favor, contacte al administrador.';
+    } else if (error.response.data && error.response.data.message) {
+      return error.response.data.message;
+    } else if (error.response.status === 500) {
+      return 'Error interno del servidor. Por favor, intente más tarde.';
+    }
+  } else if (error.request) {
+    // La petición fue realizada pero no se recibió respuesta
+    return 'No se pudo conectar con el servidor. Verifique su conexión a internet.';
+  }
+  
+  // Error general
+  return 'Error al procesar la solicitud. Por favor, intente nuevamente.';
+};
+
 // Servicio de autenticación de WordPress
 const authService = {
   // Iniciar sesión con WordPress
   login(identifier: string, password: string): Promise<User> {
-    return api.post('/jwt-auth/v1/token', {
-      username: identifier,
-      password: password
-    })
+    console.log('Iniciando sesión con:', { identifier });
+    
+    // Implementación alternativa para intentar solucionar el problema de autenticación
+    return new Promise((resolve, reject) => {
+      // Usar URL directa para evitar problemas de enrutamiento
+      api.post('/jwt-auth/v1/token', {
+        username: identifier,
+        password: password
+      })
       .then(response => {
-        const { token } = response.data;
+        console.log('Respuesta de login recibida:', response.status);
         
-        // Guardar token en localStorage (usar authToken para consistencia)
-        localStorage.setItem('authToken', token);
-        
-        // Obtener datos del usuario autenticado
-        return this.getCurrentUser();
+        // Guardar token en localStorage
+        if (response.data && response.data.token) {
+          localStorage.setItem('authToken', response.data.token);
+          console.log('Token guardado en localStorage');
+          
+          // Establecer el token para futuras peticiones
+          api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+          
+          // Construir usuario minimo con la información disponible
+          const minimalUser: User = {
+            id: response.data.user_id || 0,
+            username: response.data.user_nicename || identifier,
+            email: response.data.user_email || '',
+            firstName: '',
+            lastName: '',
+            displayName: response.data.user_display_name || identifier
+          };
+          
+          // Intentar obtener datos completos del usuario
+          this.getCurrentUser()
+            .then(user => {
+              console.log('Datos completos del usuario obtenidos');
+              resolve(user);
+            })
+            .catch(error => {
+              console.warn('No se pudieron obtener datos completos del usuario, usando datos mínimos', error);
+              resolve(minimalUser);
+            });
+        } else {
+          console.error('La respuesta no contiene un token válido:', response.data);
+          reject(new Error('No se recibió un token válido del servidor'));
+        }
       })
       .catch(error => {
         console.error('Error en login:', error);
         
-        // Mensajes de error más descriptivos
-        if (error.response) {
-          if (error.response.status === 403) {
-            throw new Error('Usuario o contraseña incorrectos');
-          } else if (error.response.data && error.response.data.message) {
-            throw new Error(error.response.data.message);
-          }
-        }
+        // Comprobar si a pesar del error 500 se ha establecido un token (esto puede ocurrir en algunos casos)
+        const token = localStorage.getItem('authToken');
         
-        throw new Error('Error al intentar iniciar sesión');
+        if (token) {
+          console.log('Se encontró un token en localStorage a pesar del error de API');
+          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          
+          // Intentar obtener datos del usuario para ver si el token es válido
+          this.getCurrentUser()
+            .then(user => {
+              console.log('El token parece ser válido a pesar del error 500, usuario obtenido');
+              resolve(user);
+            })
+            .catch(userError => {
+              console.error('El token no es válido a pesar de existir', userError);
+              localStorage.removeItem('authToken');
+              reject(error);
+            });
+        } else {
+          // Usar función de ayuda para obtener mensajes de error legibles
+          const errorMessage = getReadableErrorMessage(error);
+          reject(new Error(errorMessage));
+        }
       });
+    });
   },
   
   // Registro de usuario
@@ -76,47 +147,75 @@ const authService = {
   
   // Obtener el usuario actual
   getCurrentUser(): Promise<User> {
-    if (!this.isAuthenticated()) {
+    console.log('Obteniendo usuario actual...');
+    
+    // Verificar si hay un token de autenticación
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.error('getCurrentUser: No hay token de autenticación');
       return Promise.reject(new Error('No hay usuario autenticado'));
     }
     
-    return api.get('/wp/v2/users/me')
-      .then(response => {
-        // Transformar respuesta de WP a nuestro formato de Usuario
-        const wpUser = response.data;
-        
-        // Obtener meta datos adicionales del usuario
-        return api.get(`/floresinc/v1/user/${wpUser.id}/profile`)
-          .then(profileResponse => {
-            const profileData = profileResponse.data;
-            
-            const user: User = {
-              id: wpUser.id,
-              username: wpUser.slug,
-              email: wpUser.email || '',
-              firstName: profileData.first_name || '',
-              lastName: profileData.last_name || '',
-              displayName: wpUser.name,
-              phone: profileData.phone || '',
-              documentId: profileData.document_id || '',
-              birthDate: profileData.birth_date || '',
-              gender: profileData.gender || '',
-              newsletter: profileData.newsletter === '1',
-            };
-            
-            return user;
-          });
-      })
-      .catch(error => {
-        console.error('Error al obtener usuario actual:', error);
-        
-        if (error.response && error.response.status === 401) {
-          // Token inválido o expirado, cerrar sesión
-          this.logout();
-        }
-        
-        throw error;
-      });
+    // Asegurar que el token está configurado en los headers
+    api.defaults.headers.common['Authorization'] = `Bearer ${authToken}`;
+    
+    return new Promise((resolve, reject) => {
+      // Primero intentar obtener los datos básicos del usuario
+      api.get('/wp/v2/users/me')
+        .then(response => {
+          // Transformar respuesta de WP a nuestro formato de Usuario
+          const wpUser = response.data;
+          console.log('Datos de usuario obtenidos:', wpUser.id);
+          
+          // Usuario básico con la información disponible
+          const basicUser: User = {
+            id: wpUser.id,
+            username: wpUser.slug || wpUser.name,
+            email: wpUser.email || '',
+            firstName: wpUser.first_name || '',
+            lastName: wpUser.last_name || '',
+            displayName: wpUser.name,
+            pending: false
+          };
+          
+          // Intentar obtener meta datos adicionales del usuario
+          api.get(`/floresinc/v1/user/${wpUser.id}/profile`)
+            .then(profileResponse => {
+              const profileData = profileResponse.data;
+              console.log('Perfil de usuario obtenido');
+              
+              // Completar el usuario con los datos del perfil
+              const fullUser: User = {
+                ...basicUser,
+                phone: profileData.phone || '',
+                documentId: profileData.document_id || '',
+                birthDate: profileData.birth_date || '',
+                gender: profileData.gender || '',
+                newsletter: profileData.newsletter === '1',
+                pending: profileData.pending === '1'
+              };
+              
+              resolve(fullUser);
+            })
+            .catch(profileError => {
+              console.warn('Error al obtener perfil, usando datos básicos:', profileError);
+              // Si falla al obtener el perfil, devolver datos básicos
+              resolve(basicUser);
+            });
+        })
+        .catch(error => {
+          console.error('Error al obtener usuario:', error);
+          
+          if (error.response && error.response.status === 403) {
+            // Token inválido o expirado
+            console.log('Token inválido o expirado, eliminando...');
+            localStorage.removeItem('authToken');
+            delete api.defaults.headers.common['Authorization'];
+          }
+          
+          reject(error);
+        });
+    });
   },
   
   // Cerrar sesión

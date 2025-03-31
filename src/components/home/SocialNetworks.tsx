@@ -1,5 +1,6 @@
 import React from 'react';
 import SocialNetworkCard from './SocialNetworkCard';
+import logger from '../../utils/logger';
 
 interface SocialNetwork {
   id: string;
@@ -38,11 +39,11 @@ interface SocialNetworksProps {
 }
 
 const SocialNetworks: React.FC<SocialNetworksProps> = ({ banners }) => {
-  console.log('SocialNetworks - Renderizando componente');
-  console.log('SocialNetworks - Banners recibidos:', banners);
+  logger.debug('SocialNetworks', 'Renderizando componente');
+  logger.debug('SocialNetworks', 'Banners recibidos:', banners);
 
   if (!banners || banners.length === 0) {
-    console.warn('SocialNetworks: No hay banners disponibles');
+    logger.warn('SocialNetworks', 'No hay banners disponibles');
     return null;
   }
 
@@ -50,11 +51,11 @@ const SocialNetworks: React.FC<SocialNetworksProps> = ({ banners }) => {
   let allSocialNetworks: SocialNetwork[] = [];
   
   banners.forEach(banner => {
-    console.log(`Procesando banner ID ${banner.id}:`, banner);
+    logger.debug('SocialNetworks', `Procesando banner ID ${banner.id}:`, banner);
     
     // Si el banner tiene redes sociales definidas, usarlas
     if (banner.socialNetworks && Array.isArray(banner.socialNetworks) && banner.socialNetworks.length > 0) {
-      console.log(`Banner ${banner.id} tiene ${banner.socialNetworks.length} redes sociales definidas:`, banner.socialNetworks);
+      logger.debug('SocialNetworks', `Banner ${banner.id} tiene ${banner.socialNetworks.length} redes sociales definidas:`, banner.socialNetworks);
       
       const networks = banner.socialNetworks.map((network, index) => ({
         id: `${banner.id}-${index}`,
@@ -66,12 +67,12 @@ const SocialNetworks: React.FC<SocialNetworksProps> = ({ banners }) => {
         color: network.color || banner.socialColor || '#3b5998'
       }));
       
-      console.log(`Redes sociales procesadas para banner ${banner.id}:`, networks);
+      logger.debug('SocialNetworks', `Redes sociales procesadas para banner ${banner.id}:`, networks);
       allSocialNetworks = [...allSocialNetworks, ...networks];
     } 
     // Si el banner tiene socialIcon y socialColor definidos, usarlos
     else if (banner.socialIcon && banner.socialColor) {
-      console.log(`Banner ${banner.id} usando socialIcon y socialColor:`, banner.socialIcon, banner.socialColor);
+      logger.debug('SocialNetworks', `Banner ${banner.id} usando socialIcon y socialColor: ${banner.socialIcon}, ${banner.socialColor}`);
       
       const network = {
         id: banner.id.toString(),
@@ -83,12 +84,12 @@ const SocialNetworks: React.FC<SocialNetworksProps> = ({ banners }) => {
         color: banner.socialColor
       };
       
-      console.log(`Red social creada para banner ${banner.id}:`, network);
+      logger.debug('SocialNetworks', `Red social creada para banner ${banner.id}:`, network);
       allSocialNetworks.push(network);
     }
     // Si el banner es de tipo "bottom", crear una red social predeterminada
     else if (banner.type === 'bottom') {
-      console.log(`Banner ${banner.id} es de tipo bottom, creando red social predeterminada`);
+      logger.debug('SocialNetworks', `Banner ${banner.id} es de tipo bottom, creando red social predeterminada`);
       
       const network = {
         id: banner.id.toString(),
@@ -100,16 +101,16 @@ const SocialNetworks: React.FC<SocialNetworksProps> = ({ banners }) => {
         color: '#3b5998' // Valor predeterminado
       };
       
-      console.log(`Red social predeterminada creada para banner ${banner.id}:`, network);
+      logger.debug('SocialNetworks', `Red social predeterminada creada para banner ${banner.id}:`, network);
       allSocialNetworks.push(network);
     }
   });
 
   // Para depuración
-  console.log('SocialNetworks - Redes sociales procesadas:', allSocialNetworks);
+  logger.debug('SocialNetworks', 'Redes sociales procesadas:', allSocialNetworks);
 
   if (allSocialNetworks.length === 0) {
-    console.warn('SocialNetworks: No hay redes sociales para mostrar');
+    logger.warn('SocialNetworks', 'No se encontraron redes sociales en ningún banner');
     return null;
   }
 

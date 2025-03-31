@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { gsap } from 'gsap';
-import { cartService } from '../../services/api';
 import { Product } from '../../types/woocommerce';
-import alertService from '../../services/alertService';
+import { useCart } from '../../contexts/CartContext';
 import ScrollToTopLink from '../common/ScrollToTopLink';
+import QuantityCounter from '../common/QuantityCounter';
 
 interface AddToCartButtonProps {
   product: Product;
@@ -23,6 +23,7 @@ const AddToCartButton = ({
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const { items, addItem, updateItemQuantity } = useCart();
 
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity >= 1) {
@@ -36,23 +37,18 @@ const AddToCartButton = ({
     // Simulamos un pequeño retraso para la experiencia de usuario
     setTimeout(() => {
       // Verificar si el producto ya está en el carrito
-      const cartItems = cartService.getItems();
-      const existingItem = cartItems.find((item: any) => item.id === product.id);
+      const existingItem = items.find((item) => item.product.id === product.id);
       
       if (existingItem) {
         // Si ya existe, actualizar la cantidad directamente en lugar de sumarla
-        cartService.updateItemQuantity(product.id, quantity);
+        updateItemQuantity(product.id, quantity, undefined, true);
       } else {
         // Si no existe, añadir como nuevo
-        cartService.addItem(product, quantity);
+        addItem(product, quantity);
       }
       
-      // Mostrar alerta de producto agregado
-      alertService.success(`${product.name} agregado al carrito`);
-      
-      // Disparar evento personalizado para actualizar el contador del carrito
-      const event = new CustomEvent('cart-updated');
-      window.dispatchEvent(event);
+      // La alerta ahora se maneja en el CartContext
+      // alertService.success(`${product.name} agregado al carrito`);
       
       // Mostrar animación de éxito
       setAdding(false);
@@ -89,26 +85,12 @@ const AddToCartButton = ({
       {showQuantity && (
         <div className="flex items-center mb-3">
           <span className="text-sm text-gray-600 mr-3">Cantidad:</span>
-          <div className="flex border border-gray-300 rounded-md">
-            <button
-              type="button"
-              onClick={() => handleQuantityChange(quantity - 1)}
-              disabled={quantity <= 1}
-              className="w-8 h-8 flex items-center justify-center border-r border-gray-300 bg-gray-50 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              -
-            </button>
-            <span className="w-10 h-8 flex items-center justify-center">
-              {quantity}
-            </span>
-            <button
-              type="button"
-              onClick={() => handleQuantityChange(quantity + 1)}
-              className="w-8 h-8 flex items-center justify-center border-l border-gray-300 bg-gray-50 hover:bg-gray-100"
-            >
-              +
-            </button>
-          </div>
+          <QuantityCounter
+            productId={product.id}
+            quantity={quantity}
+            size="md"
+            onQuantityChange={handleQuantityChange}
+          />
         </div>
       )}
       

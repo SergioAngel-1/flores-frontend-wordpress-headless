@@ -10,14 +10,25 @@ interface BreadcrumbsProps {
 }
 
 const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ categories, currentProduct, currentCategory }) => {
-  // Filtrar categorías duplicadas y la categoría actual
-  const filteredCategories = categories?.filter(category => {
-    // Si no hay categoría actual, mostrar todas las categorías
-    if (!currentCategory) return true;
+  // Filtrar categorías duplicadas y ordenarlas de más general a más específica
+  // Las categorías ancestras deben aparecer primero, seguidas por las más específicas
+  const filteredCategories = React.useMemo(() => {
+    if (!categories || categories.length === 0) return [];
     
-    // Si hay categoría actual, no mostrar categorías con el mismo nombre
-    return category.name.toLowerCase() !== currentCategory.toLowerCase();
-  });
+    // Filtrar categorías duplicadas
+    const uniqueCategories = categories.filter((category, index, self) => 
+      index === self.findIndex((c) => c.id === category.id)
+    );
+    
+    // Si hay una categoría actual, no mostrarla en la lista de categorías
+    const withoutCurrent = currentCategory 
+      ? uniqueCategories.filter(category => category.name.toLowerCase() !== currentCategory.toLowerCase())
+      : uniqueCategories;
+    
+    // Ordenar categorías por nivel de jerarquía (asumiendo que vienen en orden inverso)
+    // Esto asume que la primera categoría es la más específica y la última es la más general
+    return [...withoutCurrent].reverse();
+  }, [categories, currentCategory]);
 
   return (
     <nav className="flex mb-6" aria-label="Breadcrumb">
@@ -37,10 +48,10 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ categories, currentProduct, c
               <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"></path>
             </svg>
             <Link 
-              to={currentCategory ? `/categoria/${generateSlug(currentCategory)}` : "/tienda"} 
+              to="/tienda" 
               className="ml-1 text-sm text-gray-500 hover:text-primario md:ml-2"
             >
-              {currentCategory || "Tienda"}
+              Tienda
             </Link>
           </div>
         </li>
@@ -60,6 +71,22 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ categories, currentProduct, c
             </div>
           </li>
         ))}
+        
+        {currentCategory && (
+          <li>
+            <div className="flex items-center">
+              <svg className="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd"></path>
+              </svg>
+              <Link 
+                to={`/categoria/${generateSlug(currentCategory)}`} 
+                className="ml-1 text-sm text-gray-500 hover:text-primario md:ml-2"
+              >
+                {currentCategory}
+              </Link>
+            </div>
+          </li>
+        )}
         
         {currentProduct && (
           <li aria-current="page">

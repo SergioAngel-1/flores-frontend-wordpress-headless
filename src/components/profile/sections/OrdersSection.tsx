@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { orderService } from '../../../services/api';
 import alertService from '../../../services/alertService';
-import { cartService } from '../../../services/api';
+import { useCart } from '../../../contexts/CartContext';
 
 // Tipos para los pedidos
 interface OrderItem {
@@ -11,6 +11,7 @@ interface OrderItem {
   price: number;
   quantity: number;
   image: string;
+  product_id: number;
 }
 
 interface Order {
@@ -26,6 +27,7 @@ const OrdersSection = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { addItem } = useCart();
 
   // Cargar los pedidos del usuario
   useEffect(() => {
@@ -51,7 +53,8 @@ const OrdersSection = () => {
             name: item.name,
             price: parseFloat(item.price),
             quantity: item.quantity,
-            image: item.image?.src || 'https://via.placeholder.com/150'
+            image: item.image?.src || 'https://via.placeholder.com/150',
+            product_id: item.product_id
           }))
         }));
         
@@ -117,17 +120,79 @@ const OrdersSection = () => {
       try {
         // Añadir todos los productos del pedido al carrito
         for (const item of orderToReorder.items) {
-          await cartService.addItem({
-            id: item.id,
+          // Convertir el item del pedido a un Product compatible con el contexto del carrito
+          const productToAdd = {
+            id: item.product_id,
             name: item.name,
-            price: item.price,
-            images: [{ src: item.image }]
-          }, item.quantity);
+            price: item.price.toString(),
+            images: item.image ? [{ 
+              id: 0, 
+              date_created: '', 
+              date_modified: '', 
+              src: item.image,
+              name: item.name,
+              alt: item.name
+            }] : [],
+            permalink: `/producto/${item.product_id}`,
+            // Añadir campos obligatorios de Product
+            slug: '',
+            date_created: '',
+            date_modified: '',
+            type: '',
+            status: '',
+            featured: false,
+            catalog_visibility: '',
+            description: '',
+            short_description: '',
+            sku: '',
+            regular_price: item.price.toString(),
+            sale_price: '',
+            date_on_sale_from: null,
+            date_on_sale_to: null,
+            on_sale: false,
+            purchasable: true,
+            total_sales: 0,
+            virtual: false,
+            downloadable: false,
+            downloads: [],
+            download_limit: 0,
+            download_expiry: 0,
+            tax_status: '',
+            tax_class: '',
+            manage_stock: false,
+            stock_quantity: null,
+            stock_status: '',
+            backorders: '',
+            backorders_allowed: false,
+            backordered: false,
+            sold_individually: false,
+            weight: '',
+            dimensions: { length: '', width: '', height: '' },
+            shipping_required: false,
+            shipping_taxable: false,
+            shipping_class: '',
+            shipping_class_id: 0,
+            reviews_allowed: false,
+            average_rating: '',
+            rating_count: 0,
+            related_ids: [],
+            upsell_ids: [],
+            cross_sell_ids: [],
+            parent_id: 0,
+            purchase_note: '',
+            categories: [],
+            tags: [],
+            attributes: [],
+            default_attributes: [],
+            variations: [],
+            grouped_products: [],
+            menu_order: 0,
+            price_html: '',
+            meta_data: []
+          };
+          
+          addItem(productToAdd, item.quantity);
         }
-        
-        // Disparar evento para actualizar el contador del carrito
-        const event = new CustomEvent('cart-updated');
-        window.dispatchEvent(event);
         
         alertService.success('Los productos han sido agregados al carrito');
       } catch (err) {

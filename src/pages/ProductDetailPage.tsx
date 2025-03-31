@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { productService, categoryService, cartService } from '../services/api';
+import { productService, categoryService } from '../services/api';
+import alertService from '../services/alertService';
 import { Product, Category } from '../types/woocommerce';
 import AddToCartButton from '../components/ui/AddToCartButton';
 import Breadcrumbs from '../components/ui/Breadcrumbs';
 import RelatedProducts from '../components/products/RelatedProducts';
 import PromotionalGrid from '../components/products/PromotionalGrid';
 import { formatCurrency } from '../utils/formatters';
+import { useCart } from '../contexts/CartContext';
+import QuantityCounter from '../components/common/QuantityCounter';
 
 const ProductDetailPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -17,6 +20,7 @@ const ProductDetailPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
+  const { items, addItem, updateItemQuantity } = useCart();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -92,41 +96,26 @@ const ProductDetailPage = () => {
     }
   }, [loading, product]);
 
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (value > 0) {
-      setQuantity(value);
-    }
-  };
-
-  const decreaseQuantity = () => {
-    if (quantity > 1) {
-      setQuantity(quantity - 1);
-    }
-  };
-
-  const increaseQuantity = () => {
-    setQuantity(quantity + 1);
+  const handleQuantityChange = (newQuantity: number) => {
+    setQuantity(newQuantity);
   };
 
   const handleAddToCart = () => {
     // Añadir al carrito con la cantidad seleccionada
     if (product) {
       // Verificar si el producto ya está en el carrito
-      const cartItems = cartService.getItems();
-      const existingItem = cartItems.find((item: any) => item.id === product.id);
+      const existingItem = items.find((item) => item.product.id === product.id);
       
       if (existingItem) {
         // Si ya existe, actualizar la cantidad directamente en lugar de sumarla
-        cartService.updateItemQuantity(product.id, quantity);
+        updateItemQuantity(product.id, quantity);
       } else {
         // Si no existe, añadir como nuevo
-        cartService.addItem(product, quantity);
+        addItem(product, quantity);
       }
       
-      // Disparar evento de actualización del carrito
-      const event = new CustomEvent('cart-updated');
-      window.dispatchEvent(event);
+      // Mostrar alerta de producto agregado
+      alertService.success(`${product.name} agregado al carrito`);
     }
   };
 
@@ -156,18 +145,18 @@ const ProductDetailPage = () => {
     <div className="container mx-auto px-4 py-8 md:py-12">
       {/* Migas de pan */}
       <Breadcrumbs 
-        categories={categories} 
+        categories={categories.length > 1 ? categories.slice(1) : []} 
         currentProduct={product.name}
         currentCategory={categories.length > 0 ? categories[0].name : undefined}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
         {/* Galería de imágenes - Versión mejorada */}
-        <div className="product-animate">
-          <div className="flex flex-col md:flex-row gap-4">
+        <div className="product-animate h-full">
+          <div className="flex flex-col md:flex-row gap-4 h-full">
             {/* Miniaturas verticales */}
             {product.images && product.images.length > 1 && (
-              <div className="order-2 md:order-1 flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:max-h-[500px] py-2 md:py-0">
+              <div className="order-2 md:order-1 flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto md:max-h-[600px] py-2 md:py-0">
                 {product.images.map((image, index) => (
                   <button 
                     key={image.id} 
@@ -187,14 +176,14 @@ const ProductDetailPage = () => {
             )}
             
             {/* Imagen principal */}
-            <div className="order-1 md:order-2 flex-grow bg-white rounded-lg overflow-hidden shadow-md">
+            <div className="order-1 md:order-2 flex-grow bg-white rounded-lg overflow-hidden shadow-md h-full flex items-center justify-center">
               <img 
                 src={product.images && product.images.length > 0 
                   ? product.images[activeImage].src 
                   : 'https://via.placeholder.com/600x600?text=No+Image'
                 } 
                 alt={product.name} 
-                className="w-full h-auto object-contain max-h-[500px]"
+                className="w-full h-auto object-contain max-h-[600px]"
               />
             </div>
           </div>
@@ -220,40 +209,22 @@ const ProductDetailPage = () => {
             dangerouslySetInnerHTML={{ __html: product.description }}
           />
           
-          {/* Selector de cantidad */}
+          {/* Selector de cantidad usando QuantityCounter */}
           <div className="mb-6 product-animate">
-            <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Cantidad
             </label>
-            <div className="flex items-center">
-              <button 
-                onClick={decreaseQuantity}
-                className="bg-gray-200 px-3 py-2 rounded-l-md hover:bg-gray-300 transition-colors"
-                type="button"
-              >
-                -
-              </button>
-              <input
-                type="number"
-                id="quantity"
-                name="quantity"
-                min="1"
-                value={quantity}
-                onChange={handleQuantityChange}
-                className="w-16 text-center border-t border-b border-gray-300 py-2"
-              />
-              <button 
-                onClick={increaseQuantity}
-                className="bg-gray-200 px-3 py-2 rounded-r-md hover:bg-gray-300 transition-colors"
-                type="button"
-              >
-                +
-              </button>
-            </div>
+            <QuantityCounter 
+              productId={product.id}
+              quantity={quantity}
+              size="lg"
+              className="w-fit"
+              onQuantityChange={handleQuantityChange}
+            />
           </div>
           
           {/* Botón de agregar al carrito */}
-          <div className="product-animate">
+          <div className="product-animate mb-8">
             <AddToCartButton 
               product={product} 
               showQuantity={false} 
@@ -263,8 +234,12 @@ const ProductDetailPage = () => {
             />
           </div>
           
-          {/* Grilla publicitaria de productos (reemplaza la información adicional) */}
-          <PromotionalGrid />
+          {/* Grilla publicitaria de productos */}
+          <div className="product-animate">
+            <PromotionalGrid 
+              categoryId={product.categories && product.categories.length > 0 ? product.categories[0].id : undefined} 
+            />
+          </div>
         </div>
       </div>
       

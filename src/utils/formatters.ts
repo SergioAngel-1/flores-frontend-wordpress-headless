@@ -1,3 +1,5 @@
+import logger from './logger';
+
 /**
  * Formatea un número como moneda en formato COP
  * @param amount - Cantidad a formatear
@@ -29,7 +31,7 @@ export const formatCurrency = (amount: number | string): string => {
     
     // Si no se pudo convertir, devolver 0
     if (isNaN(numAmount)) {
-      console.warn(`formatCurrency: No se pudo convertir "${amount}" a número`);
+      logger.warn('formatters', `No se pudo convertir "${amount}" a número`);
       return 'COP 0';
     }
   } else {
@@ -93,7 +95,7 @@ export const truncateText = (text: string, maxLength: number): string => {
 export const generateSlug = (name: string): string => {
   if (!name) return '';
   
-  console.log('Generando slug para:', name);
+  logger.debug('formatters', `Generando slug para: ${name}`);
   
   const slug = name
     .toLowerCase()
@@ -104,6 +106,6 @@ export const generateSlug = (name: string): string => {
     .replace(/-+/g, '-') // Elimina guiones múltiples
     .trim(); // Elimina espacios al inicio y final
     
-  console.log('Slug generado:', slug);
+  logger.debug('formatters', `Slug generado: ${slug}`);
   return slug;
 };

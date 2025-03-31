@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
-import { cartService, orderService } from '../services/api';
-import { CartItem } from '../types/woocommerce';
+import { orderService } from '../services/api';
+import alertService from '../services/alertService';
 import { useAuth } from '../contexts/AuthContext';
+import { useCart } from '../contexts/CartContext';
 
 // Función para formatear precios en formato COP
 const formatPrice = (price: number): string => {
@@ -17,9 +18,13 @@ const formatPrice = (price: number): string => {
 
 const CheckoutPage = () => {
   const { user, isAuthenticated } = useAuth();
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const { 
+    items: cartItems, 
+    total,
+    clearCart,
+    isLoading: cartLoading 
+  } = useCart();
+  
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -63,25 +68,12 @@ const CheckoutPage = () => {
     return orderTotal;
   };
 
-  // Cargar items del carrito
+  // Redirigir al carrito si está vacío
   useEffect(() => {
-    const loadCart = () => {
-      setLoading(true);
-      const items = cartService.getItems();
-      
-      if (items.length === 0) {
-        // Redirigir al carrito si está vacío
-        navigate('/carrito');
-        return;
-      }
-      
-      setCartItems(items);
-      setTotal(cartService.getTotal());
-      setLoading(false);
-    };
-
-    loadCart();
-  }, [navigate]);
+    if (!cartLoading && cartItems.length === 0) {
+      navigate('/carrito');
+    }
+  }, [cartItems, cartLoading, navigate]);
 
   // Cargar datos del usuario si está autenticado
   useEffect(() => {
@@ -136,7 +128,7 @@ const CheckoutPage = () => {
 
   // Animaciones con GSAP
   useEffect(() => {
-    if (!loading) {
+    if (!cartLoading) {
       const checkoutElements = document.querySelectorAll('.checkout-animate');
       
       gsap.fromTo(
@@ -151,7 +143,7 @@ const CheckoutPage = () => {
         }
       );
     }
-  }, [loading]);
+  }, [cartLoading]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -280,11 +272,7 @@ const CheckoutPage = () => {
       setOrderId(newOrderId);
       
       // Vaciar el carrito
-      cartService.clearCart();
-      
-      // Disparar evento de actualización del carrito
-      const event = new CustomEvent('cart-updated');
-      window.dispatchEvent(event);
+      clearCart();
       
       // Mostrar éxito
       setSuccess(true);
@@ -302,7 +290,7 @@ const CheckoutPage = () => {
     }
   };
 
-  if (loading) {
+  if (cartLoading) {
     return (
       <div className="container mx-auto px-4 py-16 flex justify-center items-center min-h-[60vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primario"></div>
@@ -828,7 +816,7 @@ const CheckoutPage = () => {
               >
                 {submitting ? (
                   <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>

@@ -1,6 +1,5 @@
 import { wooCommerceApi } from './apiConfig';
 import { orderService as centralOrderService } from './api';
-import cartService from './cartService';
 import { showServerErrorAlert } from './alertService';
 
 // Tipos de datos para pedidos
@@ -99,16 +98,6 @@ const orderService = {
   async createOrder(orderData: OrderData): Promise<Order> {
     try {
       const response = await centralOrderService.createOrder(orderData);
-      
-      // Limpiar el carrito después de crear el pedido exitosamente
-      if (response.data && response.data.id) {
-        cartService.clearCart();
-        
-        // Disparar evento de actualización del carrito
-        const event = new CustomEvent('cart-updated');
-        window.dispatchEvent(event);
-      }
-      
       return response.data;
     } catch (error) {
       console.error('Error al crear el pedido:', error);

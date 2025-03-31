@@ -14,6 +14,7 @@ import ContactPage from './pages/ContactPage'
 import ReferidosPage from './pages/ReferidosPage'
 import CatalogosPage from './pages/CatalogosPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { CartProvider } from './contexts/CartContext'
 import AuthModals from './components/auth/AuthModals'
 import './index.css'
 
@@ -35,6 +36,49 @@ const PreserveQueryParamsRoute = () => {
   return <Navigate to={`/login${location.search}`} replace={true} />;
 };
 
+// Componente para rutas autenticadas
+const AuthenticatedRoutes = () => {
+  return (
+    <Layout>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/tienda" element={<ShopPage />} />
+        <Route path="/api-test" element={<ApiTestPage />} />
+        <Route path="/producto/:slug" element={<ProductDetailPage />} />
+        <Route path="/categoria/:slug" element={<ShopPage />} />
+        <Route path="/carrito" element={<CartPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/busqueda" element={<SearchPage />} />
+        <Route path="/referidos" element={<ReferidosPage />} />
+        <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+        <Route path="/terminos" element={<TermsConditionsPage />} />
+        <Route path="/contacto" element={<ContactPage />} />
+        <Route path="/catalogos" element={<CatalogosPage />} />
+        <Route path="/login" element={<Navigate to="/" />} />
+        <Route path="*" element={
+          <div className="container mx-auto px-4 py-20 text-center">
+            <h1 className="text-3xl font-bold text-primario">Página no encontrada</h1>
+          </div>
+        } />
+      </Routes>
+      <AuthModals />
+    </Layout>
+  );
+};
+
+// Componente para rutas no autenticadas
+const UnauthenticatedRoutes = () => {
+  return (
+    <Routes>
+      <Route path="/login" element={<LandingPage />} />
+      <Route path="/privacidad" element={<PrivacyPolicyPage />} />
+      <Route path="/terminos" element={<TermsConditionsPage />} />
+      <Route path="/contacto" element={<ContactPage />} />
+      <Route path="*" element={<PreserveQueryParamsRoute />} />
+    </Routes>
+  );
+};
+
 // Componente principal de la aplicación
 function AppContent() {
   const { isAuthenticated, loading } = useAuth();
@@ -49,51 +93,18 @@ function AppContent() {
     );
   }
   
-  return (
-    <Router>
-      {isAuthenticated ? (
-        <Layout>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/tienda" element={<ShopPage />} />
-            <Route path="/api-test" element={<ApiTestPage />} />
-            <Route path="/producto/:slug" element={<ProductDetailPage />} />
-            <Route path="/categoria/:slug" element={<ShopPage />} />
-            <Route path="/carrito" element={<CartPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/busqueda" element={<SearchPage />} />
-            <Route path="/referidos" element={<ReferidosPage />} />
-            <Route path="/privacidad" element={<PrivacyPolicyPage />} />
-            <Route path="/terminos" element={<TermsConditionsPage />} />
-            <Route path="/contacto" element={<ContactPage />} />
-            <Route path="/catalogos" element={<CatalogosPage />} />
-            <Route path="/login" element={<Navigate to="/" />} />
-            <Route path="*" element={
-              <div className="container mx-auto px-4 py-20 text-center">
-                <h1 className="text-3xl font-bold text-primario">Página no encontrada</h1>
-              </div>
-            } />
-          </Routes>
-          <AuthModals />
-        </Layout>
-      ) : (
-        <Routes>
-          <Route path="/login" element={<LandingPage />} />
-          <Route path="/privacidad" element={<PrivacyPolicyPage />} />
-          <Route path="/terminos" element={<TermsConditionsPage />} />
-          <Route path="/contacto" element={<ContactPage />} />
-          <Route path="*" element={<PreserveQueryParamsRoute />} />
-        </Routes>
-      )}
-    </Router>
-  );
+  return isAuthenticated ? <AuthenticatedRoutes /> : <UnauthenticatedRoutes />;
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <CartProvider>
+          <AppContent />
+        </CartProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

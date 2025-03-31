@@ -1,10 +1,9 @@
 import { useState, useEffect, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Product } from '../../types/woocommerce';
-import { cartService } from '../../services/api';
-import { FiPlus, FiMinus } from 'react-icons/fi';
 import { formatCurrency, generateSlug } from '../../utils/formatters';
-import alertService from '../../services/alertService';
+import { useCart } from '../../contexts/CartContext';
+import QuantityCounter from '../common/QuantityCounter';
 
 interface ProductCardProps {
   product: Product;
@@ -14,56 +13,27 @@ interface ProductCardProps {
 
 const ProductCard = ({ product, className = '', animationClass = '' }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(0);
+  const { items, addItem, updateItemQuantity, removeItem } = useCart();
   
-  // Verificar si el producto ya está en el carrito al cargar
+  // Actualizar la cantidad cuando cambian los items del carrito
   useEffect(() => {
-    const cartItems = cartService.getItems();
-    const existingItem = cartItems.find((item: any) => item.id === product.id);
-    if (existingItem) {
-      setQuantity(existingItem.quantity);
-    }
-  }, [product.id]);
-
-  // Escuchar eventos de actualización del carrito
-  useEffect(() => {
-    const handleCartUpdated = () => {
-      const cartItems = cartService.getItems();
-      const existingItem = cartItems.find((item: any) => item.id === product.id);
-      setQuantity(existingItem ? existingItem.quantity : 0);
-    };
-
-    window.addEventListener('cart-updated', handleCartUpdated);
-    return () => window.removeEventListener('cart-updated', handleCartUpdated);
-  }, [product.id]);
+    const existingItem = items.find(item => item.product.id === product.id);
+    setQuantity(existingItem ? existingItem.quantity : 0);
+  }, [items, product.id]);
 
   const handleAddToCart = () => {
-    cartService.addItem(product);
-    setQuantity(prev => prev + 1);
-    
-    // Mostrar alerta de producto añadido
-    alertService.success(`${product.name} añadido al carrito`);
-    
-    // Disparar evento personalizado para actualizar el contador del carrito
-    window.dispatchEvent(new CustomEvent('cart-updated'));
+    addItem(product);
+    setQuantity(1);
   };
   
-  const handleUpdateQuantity = (newQuantity: number) => {
+  const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity <= 0) {
-      cartService.removeItem(product.id);
+      removeItem(product.id);
       setQuantity(0);
-      alertService.info(`${product.name} eliminado del carrito`);
     } else {
-      cartService.updateItemQuantity(product.id, newQuantity);
+      updateItemQuantity(product.id, newQuantity, undefined, true);
       setQuantity(newQuantity);
-      
-      // Si estamos incrementando la cantidad, mostrar alerta
-      if (newQuantity > quantity) {
-        alertService.success(`${product.name} añadido al carrito`);
-      }
     }
-    
-    // Disparar evento personalizado para actualizar el contador del carrito
-    window.dispatchEvent(new CustomEvent('cart-updated'));
   };
   
   // Aplicar estilos de sombra directamente con CSS personalizado
@@ -118,23 +88,13 @@ const ProductCard = ({ product, className = '', animationClass = '' }: ProductCa
               </svg>
             </button>
           ) : (
-            <div className="flex items-center border border-primario rounded overflow-hidden">
-              <button 
-                onClick={() => handleUpdateQuantity(quantity - 1)}
-                className="bg-primario/10 hover:bg-primario/20 text-primario p-1 transition-colors"
-                aria-label="Disminuir cantidad"
-              >
-                <FiMinus size={14} />
-              </button>
-              <span className="px-2 text-sm font-medium min-w-[20px] text-center">{quantity}</span>
-              <button 
-                onClick={() => handleUpdateQuantity(quantity + 1)}
-                className="bg-primario/10 hover:bg-primario/20 text-primario p-1 transition-colors"
-                aria-label="Aumentar cantidad"
-              >
-                <FiPlus size={14} />
-              </button>
-            </div>
+            <QuantityCounter
+              productId={product.id}
+              quantity={quantity}
+              productName={product.name}
+              size="sm"
+              onQuantityChange={handleQuantityChange}
+            />
           )}
         </div>
       </div>
