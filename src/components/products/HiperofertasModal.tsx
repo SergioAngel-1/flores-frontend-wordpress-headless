@@ -4,6 +4,7 @@ import { api } from '../../services/apiConfig';
 import { isAxiosError, AxiosError } from 'axios';
 import AnimatedModal from '../ui/AnimatedModal';
 import { IoMdFlash } from 'react-icons/io';
+import { generateSlug } from '../../utils/formatters';
 
 // Interfaces
 interface HiperofertaProduct {
@@ -72,7 +73,23 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
         });
         
         console.log('Hiperofertas cargadas:', response.data);
-        setHiperofertas(response.data);
+        
+        // Asegurarse de que las URLs son relativas y no absolutas
+        const processedData = response.data.map(oferta => {
+          // Si la URL es absoluta, mantener solo la ruta relativa
+          if (oferta.product.permalink && oferta.product.permalink.includes('://')) {
+            try {
+              const url = new URL(oferta.product.permalink);
+              oferta.product.permalink = url.pathname;
+            } catch (e) {
+              // Si hay un error al procesar la URL, usar el slug para generar una URL relativa
+              oferta.product.permalink = `/producto/${generateSlug(oferta.product.name)}`;
+            }
+          }
+          return oferta;
+        });
+        
+        setHiperofertas(processedData);
       } catch (err: unknown) {
         console.error('Error al cargar hiperofertas:', err);
         
@@ -98,7 +115,7 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
               id: 101,
               name: "Smartphone XYZ Pro",
               slug: "smartphone-xyz-pro",
-              permalink: "/producto/smartphone-xyz-pro",
+              permalink: "/producto/smartphone-xyz-pro", // Se mantiene por compatibilidad pero no se usa
               image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
               gallery: [],
               short_description: "El smartphone más potente del mercado con cámara de 108MP",
@@ -121,7 +138,7 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
               id: 102,
               name: "Laptop UltraBook 15",
               slug: "laptop-ultrabook-15",
-              permalink: "/producto/laptop-ultrabook-15",
+              permalink: "/producto/laptop-ultrabook-15", // Se mantiene por compatibilidad pero no se usa
               image: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
               gallery: [],
               short_description: "Laptop ultradelgada con procesador de última generación",
@@ -144,7 +161,7 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
               id: 103,
               name: "SmartWatch Pro",
               slug: "smartwatch-pro",
-              permalink: "/producto/smartwatch-pro",
+              permalink: "/producto/smartwatch-pro", // Se mantiene por compatibilidad pero no se usa
               image: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80",
               gallery: [],
               short_description: "Monitorea tu salud y actividad física con este reloj inteligente",
@@ -220,7 +237,7 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
                     
                     {/* Imagen */}
                     <Link 
-                      to={oferta.product.permalink}
+                      to={`/producto/${generateSlug(oferta.product.name)}`}
                       onClick={onClose}
                       className="block relative h-0 pb-[100%] overflow-hidden"
                     >
@@ -236,7 +253,7 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
                   <div className="p-4 flex-grow flex flex-col justify-between">
                     {/* Título del producto */}
                     <Link 
-                      to={oferta.product.permalink}
+                      to={`/producto/${generateSlug(oferta.product.name)}`}
                       onClick={onClose}
                       className="block text-sm font-bold text-oscuro hover:text-primario transition-colors mb-2 line-clamp-2 min-h-[2.5rem]"
                     >
@@ -264,7 +281,7 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
                     
                     {/* Botón */}
                     <Link 
-                      to={oferta.product.permalink}
+                      to={`/producto/${generateSlug(oferta.product.name)}`}
                       onClick={onClose}
                       className="block w-full bg-primario hover:bg-primario-dark text-white text-center py-2 rounded-md transition-colors duration-300 text-sm font-medium"
                     >
