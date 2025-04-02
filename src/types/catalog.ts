@@ -11,6 +11,7 @@ export interface CatalogProduct {
   id: number;
   name: string;
   price: string;
+  product_price?: string | null;
   catalog_price?: string | null;
   regular_price?: string;
   sale_price?: string;
@@ -36,6 +37,7 @@ export interface CatalogProduct {
 export interface CatalogProductInput {
   id: number;
   product_id?: number;
+  product_price?: number | null;
   catalog_price?: number | null;
   catalog_name?: string | null;
   catalog_description?: string | null;

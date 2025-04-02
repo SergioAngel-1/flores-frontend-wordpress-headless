@@ -5,6 +5,7 @@ import AnimatedModal from '../components/ui/AnimatedModal';
 import catalogService from '../services/catalogService';
 import CatalogModal from '../components/catalogs/CatalogModal';
 import ProductList from '../components/catalogs/ProductList';
+import { CatalogPDFViewer, CatalogPDFDownloadLink } from '../components/catalogs/CatalogPDF';
 import { Catalog, CatalogProduct, CatalogProductInput } from '../types/catalog';
 import alertService from '../services/alertService';
 
@@ -15,6 +16,8 @@ const CatalogDetailPage = () => {
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [viewType, setViewType] = useState<'grid' | 'list'>('grid');
   const dataFetchedRef = useRef(false);
 
   // Función para cargar los productos del catálogo
@@ -147,9 +150,20 @@ const CatalogDetailPage = () => {
     
     try {
       setLoading(true);
+      console.log('Intentando actualizar producto con ID:', productId);
+      console.log('Datos de actualización:', updatedData);
+      
+      // Validar datos críticos antes de enviar
+      if (updatedData.id !== productId) {
+        console.error('Inconsistencia en ID de producto:', productId, updatedData.id);
+        alertService.error('Error al actualizar el producto: inconsistencia en ID');
+        setLoading(false);
+        return;
+      }
       
       // Llamar a la API para actualizar el producto específico del catálogo
-      await catalogService.updateCatalogProduct(catalog.id, updatedData);
+      const updatedProduct = await catalogService.updateCatalogProduct(catalog.id, updatedData);
+      console.log('Producto actualizado correctamente:', updatedProduct);
       
       // Actualizar la lista de productos en el estado local
       setProducts(prevProducts => 
@@ -157,13 +171,17 @@ const CatalogDetailPage = () => {
           if (product.id === productId) {
             return {
               ...product,
-              name: updatedData.catalog_name || product.name,
-              catalog_price: updatedData.catalog_price ? updatedData.catalog_price.toString() : product.catalog_price,
-              catalog_name: updatedData.catalog_name || null,
-              catalog_description: updatedData.catalog_description || null,
-              catalog_short_description: updatedData.catalog_short_description || null,
-              catalog_sku: updatedData.catalog_sku || null,
-              catalog_image: updatedData.catalog_image || null,
+              // Actualizar solo los campos que hayan cambiado
+              name: updatedProduct.catalog_name || product.name,
+              price: updatedProduct.catalog_price ? String(updatedProduct.catalog_price) : product.price,
+              catalog_price: updatedProduct.catalog_price !== null ? 
+                String(updatedProduct.catalog_price) : product.catalog_price,
+              catalog_name: updatedProduct.catalog_name,
+              catalog_description: updatedProduct.catalog_description,
+              catalog_short_description: updatedProduct.catalog_short_description,
+              catalog_sku: updatedProduct.catalog_sku,
+              catalog_image: updatedProduct.catalog_image,
+              catalog_images: updatedProduct.catalog_images
             };
           }
           return product;
@@ -179,36 +197,9 @@ const CatalogDetailPage = () => {
     }
   }, [catalog]);
 
-  const handleExportPDF = useCallback(async () => {
+  const handleExportPDF = useCallback(() => {
     if (!catalog) return;
-    
-    try {
-      setLoading(true);
-      console.log(`Generando PDF para el catálogo ${catalog.id}`);
-      
-      const response = await catalogService.generatePDF(catalog.id);
-      
-      // Crear URL para el blob
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      
-      // Crear enlace temporal y simular clic para descargar
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `catalogo-${catalog.name.toLowerCase().replace(/\s+/g, '-')}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      
-      // Limpiar
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      alertService.success('PDF generado exitosamente');
-    } catch (error) {
-      console.error('Error al exportar PDF:', error);
-      alertService.error('Error al generar el PDF del catálogo');
-    } finally {
-      setLoading(false);
-    }
+    setShowPdfModal(true);
   }, [catalog]);
 
   return (
@@ -264,10 +255,38 @@ const CatalogDetailPage = () => {
 
           <div className="bg-white shadow-md rounded-lg p-6">
             {products.length > 0 ? (
-              <ProductList 
-                products={products} 
-                onProductUpdate={handleUpdateProduct}
-              />
+              <>
+                <div className="flex justify-between items-center mb-6">
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setViewType('grid')}
+                      className={`p-2 rounded ${viewType === 'grid' ? 'bg-primario text-white' : 'bg-gray-200 text-gray-700'}`}
+                      title="Vista de cuadrícula"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setViewType('list')}
+                      className={`p-2 rounded ${viewType === 'list' ? 'bg-primario text-white' : 'bg-gray-200 text-gray-700'}`}
+                      title="Vista de lista"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                <ProductList 
+                  products={products} 
+                  onProductUpdate={handleUpdateProduct}
+                  viewType={viewType}
+                />
+              </>
             ) : (
               <div className="text-center py-16">
                 <h2 className="text-xl font-semibold mb-4">No hay productos en este catálogo</h2>
@@ -286,32 +305,74 @@ const CatalogDetailPage = () => {
           <AnimatedModal
             isOpen={showModal}
             onClose={() => setShowModal(false)}
-            title="Editar Catálogo"
+            maxWidth="max-w-4xl"
           >
-            <CatalogModal 
+            <CatalogModal
               initialName={catalog.name}
-              initialCatalogId={catalog.id}
-              initialProductIds={products.map(p => p.id)}
-              initialProductsData={products.map(p => ({
-                id: p.id,
-                catalog_price: p.catalog_price ? parseFloat(p.catalog_price) : null,
-                catalog_name: p.catalog_name,
-                catalog_description: p.catalog_description,
-                catalog_short_description: p.catalog_short_description,
-                catalog_sku: p.catalog_sku,
-                catalog_image: p.catalog_image,
-                catalog_images: p.catalog_images
+              initialProductIds={products.map(product => product.id)}
+              initialProductsData={products.map(product => ({
+                id: product.id,
+                product_id: product.id,
+                catalog_price: product.catalog_price ? parseFloat(String(product.catalog_price)) : null,
+                catalog_name: product.catalog_name,
+                catalog_description: product.catalog_description,
+                catalog_short_description: product.catalog_short_description,
+                catalog_sku: product.catalog_sku,
+                catalog_image: product.catalog_image,
+                catalog_images: product.catalog_images,
+                is_custom: product.is_custom
               }))}
-              onSave={handleUpdateCatalog} 
-              onCancel={() => setShowModal(false)} 
+              initialCatalogId={catalog.id}
               isEditing={true}
+              onSave={handleUpdateCatalog}
+              onCancel={() => setShowModal(false)}
             />
+          </AnimatedModal>
+
+          {/* Modal para vista previa y descarga del PDF */}
+          <AnimatedModal
+            isOpen={showPdfModal}
+            onClose={() => setShowPdfModal(false)}
+            maxWidth="max-w-6xl"
+          >
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-800">Vista previa del catálogo en PDF</h2>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setShowPdfModal(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <CatalogPDFDownloadLink
+                  catalogName={catalog.name}
+                  products={products}
+                  viewType={viewType}
+                  logoUrl="/wp-content/themes/FloresInc/assets/img/logo.png"
+                />
+              </div>
+
+              <div className="border border-gray-300 rounded">
+                <CatalogPDFViewer
+                  catalogName={catalog.name}
+                  products={products}
+                  viewType={viewType}
+                  logoUrl="/wp-content/themes/FloresInc/assets/img/logo.png"
+                />
+              </div>
+            </div>
           </AnimatedModal>
         </>
       ) : (
         <div className="text-center py-16">
-          <h2 className="text-2xl font-bold mb-4">Catálogo no encontrado</h2>
-          <p className="text-gray-600 mb-8">El catálogo que buscas no existe o ha sido eliminado.</p>
+          <h2 className="text-xl font-semibold mb-4">No se encontró el catálogo</h2>
           <button
             className="bg-primario hover:bg-primario-dark text-white px-6 py-3 rounded-lg"
             onClick={() => navigate('/catalogos')}

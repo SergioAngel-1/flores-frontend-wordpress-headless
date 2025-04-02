@@ -3,11 +3,13 @@ import { CatalogProductInput } from '../../types/catalog';
 import AnimatedModal from '../ui/AnimatedModal';
 import alertService from '../../services/alertService';
 import { Product } from '../../types/woocommerce';
+import { formatCurrency } from '../../utils/formatters';
 
 interface ProductEditModalProps {
   isOpen?: boolean;
   product: Product & { 
     catalog_price?: number | string | null;
+    product_price?: number | string | null;
     catalog_name?: string | null;
     catalog_sku?: string | null;
     catalog_description?: string | null;
@@ -29,6 +31,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
   // Estado para los campos editables
   const [name, setName] = useState('');
   const [price, setPrice] = useState<string | null>(null);
+  const [productPrice, setProductPrice] = useState<string | null>(null);
   const [sku, setSku] = useState('');
   const [shortDescription, setShortDescription] = useState('');
   const [description, setDescription] = useState('');
@@ -45,6 +48,9 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
       setPrice(product.catalog_price !== null && product.catalog_price !== undefined 
         ? String(product.catalog_price) 
         : null);
+      setProductPrice(product.product_price !== null && product.product_price !== undefined
+        ? String(product.product_price)
+        : product.price ? String(product.price) : null);
       setSku(product.catalog_sku || product.sku || '');
       setShortDescription(product.catalog_short_description || product.short_description || '');
       setDescription(product.catalog_description || product.description || '');
@@ -84,6 +90,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
       const updatedData: CatalogProductInput = {
         id: product.id,
         catalog_price: price ? parseFloat(price) : null,
+        product_price: productPrice ? parseFloat(productPrice) : null,
         catalog_name: name,
         catalog_sku: sku,
         catalog_short_description: shortDescription,
@@ -142,6 +149,21 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
             min="0"
           />
           <p className="text-xs text-gray-500 mt-1">Dejar en blanco para usar el precio de WooCommerce</p>
+        </div>
+        
+        {/* Precio original */}
+        <div>
+          <label htmlFor="product-original-price" className="block text-sm font-medium text-gray-700 mb-1">
+            Precio original
+          </label>
+          <input
+            type="text"
+            id="product-original-price"
+            value={productPrice !== null ? formatCurrency(parseFloat(productPrice)) : ''}
+            disabled={true}
+            className="w-full p-2 border border-gray-300 rounded-md focus:ring-primario focus:border-primario"
+            placeholder="Precio original"
+          />
         </div>
         
         {/* SKU */}

@@ -198,73 +198,22 @@ const catalogService = {
         throw new Error(getReadableErrorMessage(error));
       });
   },
-  
-  // Actualizar un producto de un catálogo
-  updateCatalogProduct(catalogId: number, productData: { id: number, catalog_price?: number | null }) {
-    return api.put(`/floresinc/v1/catalogs/${catalogId}/products/${productData.id}`, productData)
-      .then(response => response.data)
-      .catch(error => {
-        console.error(`Error al actualizar producto ${productData.id} del catálogo ${catalogId}:`, error);
-        throw new Error(getReadableErrorMessage(error));
-      });
-  },
-  
-  // Generar PDF del catálogo
-  generatePDF(catalogId: number) {
-    return api.get(`/floresinc/v1/catalogs/${catalogId}/pdf`, { 
-      responseType: 'blob' 
-    })
-    .catch(error => {
-      console.error(`Error al generar PDF del catálogo ${catalogId}:`, error);
-      throw new Error(getReadableErrorMessage(error));
-    });
-  },
-  
+
   // Crear un producto personalizado para un catálogo
   createCustomProduct(data: CreateCustomProductData) {
-    logger.info('CatalogService', 'Datos recibidos para crear producto personalizado:', data);
+    console.log('Datos recibidos para crear producto personalizado:', data);
     
-    // Asegurarse de que el precio sea un número y el catalog_id sea válido
-    const formattedData = {
-      ...data,
-      price: typeof data.price === 'string' ? parseFloat(data.price) : data.price,
-      catalog_id: typeof data.catalog_id === 'string' ? parseInt(data.catalog_id, 10) : data.catalog_id,
-      is_custom: true // Marcar explícitamente como producto personalizado
-    };
-    
-    // Verificar que el catalog_id sea un número válido y mayor que cero
-    if (isNaN(formattedData.catalog_id) || formattedData.catalog_id <= 0) {
-      logger.error('CatalogService', `Error: catalog_id no es un número válido o es cero: ${data.catalog_id}`);
-      throw new Error(`ID de catálogo inválido: ${data.catalog_id}. Debe ser un número mayor que cero.`);
-    }
-    
-    logger.info('CatalogService', 'Datos formateados para enviar al endpoint:', formattedData);
-    
-    return api.post('/floresinc/v1/catalogs/custom-products', formattedData)
+    return api.post('/floresinc/v1/catalogs/custom-products', data)
       .then(response => {
-        logger.info('CatalogService', 'Respuesta completa de creación de producto personalizado:', response);
-        
-        // Verificar que la respuesta contiene los datos esperados
-        if (response.data && response.data.id) {
-          logger.info('CatalogService', `Producto personalizado creado exitosamente con ID: ${response.data.id}`);
-          
-          // Verificar si el producto está correctamente asociado al catálogo
-          if (response.data.catalog_id !== formattedData.catalog_id) {
-            logger.warn('CatalogService', `Advertencia: El producto se creó con catalog_id=${response.data.catalog_id}, pero se esperaba catalog_id=${formattedData.catalog_id}`);
-          }
-          
-          return response.data;
-        } else {
-          logger.error('CatalogService', 'Respuesta inesperada al crear producto personalizado:', response.data);
-          throw new Error('La respuesta del servidor no contiene los datos esperados');
-        }
+        console.log('Respuesta de creación de producto personalizado:', response.data);
+        return response.data;
       })
       .catch(error => {
-        logger.error('CatalogService', 'Error al crear producto personalizado:', error);
+        console.error('Error al crear producto personalizado:', error);
         throw new Error(getReadableErrorMessage(error));
       });
   },
-  
+
   // Actualizar un producto personalizado
   updateCustomProduct(productId: number, data: CreateCustomProductData) {
     return api.put(`/floresinc/v1/catalogs/custom-products/${productId}`, data)
@@ -275,6 +224,46 @@ const catalogService = {
       });
   },
   
+  // Actualizar un producto específico de un catálogo
+  updateCatalogProduct(catalogId: number, productData: CatalogProductInput) {
+    // Logging detallado para diagnóstico
+    logger.debug('catalogService', `Actualizando producto en catálogo ${catalogId}`, productData);
+    
+    // Asegurar que tenemos todos los IDs necesarios
+    const productId = productData.product_id || productData.id;
+    if (!productId) {
+      logger.error('catalogService', 'Error: No se pudo determinar el ID del producto', productData);
+      return Promise.reject(new Error('ID de producto no válido'));
+    }
+    
+    // Preparar payload con la estructura correcta para el endpoint
+    const payload = {
+      id: productData.id,
+      product_id: productId,
+      catalog_price: productData.catalog_price,
+      product_price: productData.product_price,
+      catalog_name: productData.catalog_name || null,
+      catalog_description: productData.catalog_description || null,
+      catalog_short_description: productData.catalog_short_description || null,
+      catalog_sku: productData.catalog_sku || null,
+      catalog_image: productData.catalog_image || null,
+      catalog_images: productData.catalog_images || [],
+      is_custom: !!productData.is_custom
+    };
+    
+    logger.debug('catalogService', `Enviando datos al endpoint`, payload);
+    
+    return api.put(`/floresinc/v1/catalogs/${catalogId}/products/${productId}`, payload)
+      .then(response => {
+        logger.debug('catalogService', `Producto actualizado exitosamente:`, response.data);
+        return response.data;
+      })
+      .catch(error => {
+        logger.error('catalogService', `Error al actualizar producto ${productId} en catálogo ${catalogId}:`, error);
+        throw new Error(getReadableErrorMessage(error));
+      });
+  },
+
   // Eliminar un producto personalizado
   deleteCustomProduct(productId: number) {
     return api.delete(`/floresinc/v1/catalogs/custom-products/${productId}`)

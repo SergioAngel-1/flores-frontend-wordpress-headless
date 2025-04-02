@@ -9,7 +9,7 @@ interface CustomProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (productData: CreateCustomProductData) => Promise<void>;
-  catalogId: number;
+  catalogId?: number;
   initialProduct?: CustomProduct;
   isEditing?: boolean;
 }
@@ -34,7 +34,7 @@ const CustomProductModal: React.FC<CustomProductModalProps> = ({
   const [loading, setLoading] = useState(false);
 
   // Guardar el ID del catálogo en un ref para asegurar que esté disponible en todo momento
-  const catalogIdRef = useRef<number>(catalogId);
+  const catalogIdRef = useRef<number | undefined>(catalogId);
   
   // Actualizar el ref cuando cambie catalogId
   useEffect(() => {

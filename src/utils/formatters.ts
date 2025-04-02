@@ -109,3 +109,35 @@ export const generateSlug = (name: string): string => {
   logger.debug('formatters', `Slug generado: ${slug}`);
   return slug;
 };
+
+/**
+ * Valida y formatea una URL de imagen para asegurar que sea utilizable
+ * @param url La URL de la imagen a validar
+ * @returns Una URL válida o null si no es posible formatearla
+ */
+export const getValidImageUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  
+  try {
+    // Si la URL ya está bien formada, devolverla tal cual
+    if (url.match(/^https?:\/\//i)) {
+      return url;
+    }
+    
+    // Si es una URL relativa, convertirla a absoluta usando el origen actual
+    if (url.startsWith('/')) {
+      const baseUrl = window.location.origin;
+      return `${baseUrl}${url}`;
+    }
+    
+    // Si parece ser una ruta sin protocolo, añadir http://
+    if (url.includes('.') && !url.startsWith('http')) {
+      return `http://${url}`;
+    }
+    
+    return url;
+  } catch (error) {
+    console.error('Error al formatear URL de imagen:', error, url);
+    return null;
+  }
+};

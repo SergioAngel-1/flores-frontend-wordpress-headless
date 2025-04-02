@@ -8,6 +8,7 @@ interface AnimatedModalProps {
   className?: string;
   title?: React.ReactNode;
   hideCloseButton?: boolean;
+  maxWidth?: string;
 }
 
 const AnimatedModal: React.FC<AnimatedModalProps> = ({ 
@@ -16,7 +17,8 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
   children, 
   className = "",
   title = "",
-  hideCloseButton = false
+  hideCloseButton = false,
+  maxWidth = "max-w-xl"
 }) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -66,7 +68,7 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className={`animated-modal-content ${isVisible ? 'visible' : ''} ${className}`}
+        className={`animated-modal-content ${isVisible ? 'visible' : ''} ${className} ${maxWidth}`}
         onClick={(e) => e.stopPropagation()}
       >
         {!hideCloseButton && (
