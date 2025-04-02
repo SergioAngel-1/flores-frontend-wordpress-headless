@@ -173,7 +173,7 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
     <AnimatedModal 
       isOpen={isOpen} 
       onClose={onClose} 
-      className="max-w-6xl"
+      className="max-w-7xl w-full"
       title={
         <div className="flex items-center text-primario">
           <IoMdFlash className="text-2xl mr-2 text-yellow-500" />
@@ -206,11 +206,11 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
               ¡No te pierdas estas ofertas exclusivas por tiempo limitado!
             </p>
             
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {hiperofertas.map((oferta) => (
                 <div 
                   key={oferta.id} 
-                  className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-300"
+                  className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-shadow duration-300 flex flex-col"
                 >
                   <div className="relative">
                     {/* Badge de descuento */}
@@ -233,28 +233,28 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
                     </Link>
                   </div>
                   
-                  <div className="p-3">
+                  <div className="p-4 flex-grow flex flex-col justify-between">
                     {/* Título del producto */}
                     <Link 
                       to={oferta.product.permalink}
                       onClick={onClose}
-                      className="block text-sm font-bold text-oscuro hover:text-primario transition-colors mb-1 line-clamp-2 h-10"
+                      className="block text-sm font-bold text-oscuro hover:text-primario transition-colors mb-2 line-clamp-2 min-h-[2.5rem]"
                     >
                       {oferta.product.name}
                     </Link>
                     
                     {/* Precios */}
-                    <div className="flex items-center mb-2">
+                    <div className="flex items-center mb-3">
                       <span className="text-gray-400 line-through mr-2 text-xs">
                         {formatCurrency(oferta.regular_price)}
                       </span>
-                      <span className="text-base font-bold text-primario">
+                      <span className="text-lg font-bold text-primario">
                         {formatCurrency(oferta.sale_price)}
                       </span>
                     </div>
                     
                     {/* Tiempo restante */}
-                    <div className="text-xs text-gray-500 mb-2">
+                    <div className="text-xs text-gray-500 mb-3">
                       {oferta.days_remaining > 0 ? (
                         <span>Termina en {oferta.days_remaining} día{oferta.days_remaining !== 1 ? 's' : ''}</span>
                       ) : (
@@ -266,7 +266,7 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
                     <Link 
                       to={oferta.product.permalink}
                       onClick={onClose}
-                      className="block w-full bg-primario hover:bg-primario-dark text-white text-center py-1.5 rounded-md transition-colors duration-300 text-sm"
+                      className="block w-full bg-primario hover:bg-primario-dark text-white text-center py-2 rounded-md transition-colors duration-300 text-sm font-medium"
                     >
                       Ver oferta
                     </Link>
