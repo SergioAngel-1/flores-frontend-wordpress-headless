@@ -35,7 +35,7 @@
   border-radius: 0.5rem;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   width: 100%;
-  max-width: 90vw;
+  max-width: 600px;
   margin: 0 1rem;
   max-height: calc(100vh - 4rem);
   overflow: hidden;
@@ -95,7 +95,7 @@
 }
 
 .animated-modal-body {
-  padding: 0;
+  padding: 1.5rem;
   overflow-y: auto;
   max-height: calc(100vh - 4rem - 60px); /* restar la altura del header */
 }

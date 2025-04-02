@@ -1,5 +1,5 @@
-import axios from 'axios';
-import cartService from './cartService';
+import { wooCommerceApi } from './apiConfig';
+import { orderService as centralOrderService } from './api';
 import { showServerErrorAlert } from './alertService';
 
 // Tipos de datos para pedidos
@@ -97,22 +97,7 @@ const orderService = {
   // Crear un nuevo pedido
   async createOrder(orderData: OrderData): Promise<Order> {
     try {
-      const response = await axios.post('/wp-json/wc/v3/orders', orderData, {
-        params: {
-          consumer_key: import.meta.env.VITE_WC_CONSUMER_KEY,
-          consumer_secret: import.meta.env.VITE_WC_CONSUMER_SECRET
-        }
-      });
-      
-      // Limpiar el carrito después de crear el pedido exitosamente
-      if (response.data && response.data.id) {
-        cartService.clearCart();
-        
-        // Disparar evento de actualización del carrito
-        const event = new CustomEvent('cart-updated');
-        window.dispatchEvent(event);
-      }
-      
+      const response = await centralOrderService.createOrder(orderData);
       return response.data;
     } catch (error) {
       console.error('Error al crear el pedido:', error);
@@ -124,12 +109,7 @@ const orderService = {
   // Obtener un pedido por su ID
   async getOrderById(id: number): Promise<Order> {
     try {
-      const response = await axios.get(`/wp-json/wc/v3/orders/${id}`, {
-        params: {
-          consumer_key: import.meta.env.VITE_WC_CONSUMER_KEY,
-          consumer_secret: import.meta.env.VITE_WC_CONSUMER_SECRET
-        }
-      });
+      const response = await centralOrderService.getOrderById(id);
       
       return response.data;
     } catch (error) {
@@ -141,13 +121,7 @@ const orderService = {
   // Obtener los pedidos de un cliente
   async getCustomerOrders(customerId: number): Promise<Order[]> {
     try {
-      const response = await axios.get('/wp-json/wc/v3/orders', {
-        params: {
-          customer: customerId,
-          consumer_key: import.meta.env.VITE_WC_CONSUMER_KEY,
-          consumer_secret: import.meta.env.VITE_WC_CONSUMER_SECRET
-        }
-      });
+      const response = await centralOrderService.getCustomerOrders(customerId);
       
       return response.data;
     } catch (error) {
@@ -159,12 +133,7 @@ const orderService = {
   // Verificar disponibilidad de métodos de pago
   async getPaymentMethods(): Promise<Array<{id: string, title: string, description: string}>> {
     try {
-      const response = await axios.get('/wp-json/wc/v3/payment_gateways', {
-        params: {
-          consumer_key: import.meta.env.VITE_WC_CONSUMER_KEY,
-          consumer_secret: import.meta.env.VITE_WC_CONSUMER_SECRET
-        }
-      });
+      const response = await wooCommerceApi.get('/payment_gateways');
       
       // Filtrar solo los métodos de pago habilitados
       return response.data.filter((method: any) => method.enabled);
@@ -180,12 +149,7 @@ const orderService = {
   // Verificar disponibilidad de métodos de envío
   async getShippingMethods(): Promise<Array<{id: string, title: string, cost: string}>> {
     try {
-      const response = await axios.get('/wp-json/wc/v3/shipping_methods', {
-        params: {
-          consumer_key: import.meta.env.VITE_WC_CONSUMER_KEY,
-          consumer_secret: import.meta.env.VITE_WC_CONSUMER_SECRET
-        }
-      });
+      const response = await wooCommerceApi.get('/shipping_methods');
       
       return response.data;
     } catch (error) {
@@ -200,11 +164,9 @@ const orderService = {
   // Aplicar cupón de descuento
   async validateCoupon(code: string): Promise<{valid: boolean, amount: string, discount_type: string}> {
     try {
-      const response = await axios.get('/wp-json/wc/v3/coupons', {
+      const response = await wooCommerceApi.get('/coupons', {
         params: {
-          code,
-          consumer_key: import.meta.env.VITE_WC_CONSUMER_KEY,
-          consumer_secret: import.meta.env.VITE_WC_CONSUMER_SECRET
+          code
         }
       });
       

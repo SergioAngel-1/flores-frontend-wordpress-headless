@@ -73,7 +73,22 @@ const LandingPage = () => {
       setLoading(true);
       const success = await login(identifier, password);
       
-      if (!success) {
+      // Si al principio parece fallar pero aún así vemos que hay un token, 
+      // podemos intentar redirigir a la página principal directamente
+      const authToken = localStorage.getItem('authToken');
+      
+      if (success) {
+        // Redirección explícita a la página principal después del login exitoso
+        console.log('Login exitoso, redirigiendo a página principal');
+        navigate('/', { replace: true });
+      } else if (authToken) {
+        // Esto maneja el caso donde el login técnicamente "falló" pero tenemos un token válido
+        console.log('Login reportó error pero hay un token disponible, intentando redirección');
+        setTimeout(() => {
+          // Intentamos redireccionar después de un pequeño retraso para dar tiempo a que se actualice el estado
+          navigate('/', { replace: true });
+        }, 500);
+      } else {
         alertService.error('Credenciales incorrectas. Por favor, intenta de nuevo.');
       }
     } catch (error) {

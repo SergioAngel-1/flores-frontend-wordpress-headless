@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../../services/apiConfig';
+import { isAxiosError, AxiosError } from 'axios';
 import AnimatedModal from '../ui/AnimatedModal';
 import { IoMdFlash } from 'react-icons/io';
 
@@ -64,34 +65,29 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
         setLoading(true);
         setError(null);
         
-        const apiUrl = `${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/hiperofertas`;
-        console.log('Cargando hiperofertas desde:', apiUrl);
+        console.log('Cargando hiperofertas...');
         
-        const response = await axios.get<Hiperoferta[]>(apiUrl, {
-          timeout: 10000,
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          withCredentials: false
+        const response = await api.get<Hiperoferta[]>('/floresinc/v1/hiperofertas', {
+          timeout: 10000
         });
         
         console.log('Hiperofertas cargadas:', response.data);
         setHiperofertas(response.data);
-      } catch (error) {
-        console.error('Error al cargar hiperofertas:', error);
+      } catch (err: unknown) {
+        console.error('Error al cargar hiperofertas:', err);
         
-        if (axios.isAxiosError(error)) {
+        if (isAxiosError(err)) {
+          const axiosError = err as AxiosError;
           console.error('Detalles del error:', {
-            mensaje: error.message,
-            url: error.config?.url,
-            método: error.config?.method,
-            respuesta: error.response?.data,
-            estado: error.response?.status
+            mensaje: axiosError.message,
+            url: axiosError.config?.url,
+            método: axiosError.config?.method,
+            respuesta: axiosError.response?.data,
+            estado: axiosError.response?.status
           });
         }
         
-        setError('No se pudieron cargar las hiperofertas');
+        setError('No se pudieron cargar las hiperofertas. Intenta más tarde.');
         
         // Datos de respaldo para desarrollo
         setHiperofertas([

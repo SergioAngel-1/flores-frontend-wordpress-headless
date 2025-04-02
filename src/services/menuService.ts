@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { api } from './apiConfig';
 import { MenuCategory } from '../types/menu';
 
 /**
@@ -12,16 +12,9 @@ const menuService = {
   getMainMenu: async (): Promise<MenuCategory[]> => {
     try {
       console.log('Obteniendo menú desde WordPress...');
-      const apiUrl = `${import.meta.env.VITE_WP_API_URL}/wp-json/floresinc/v1/menu`;
-      console.log('URL de la API de menú:', apiUrl);
       
-      const response = await axios.get(apiUrl, {
-        timeout: 10000, // 10 segundos de timeout
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        withCredentials: false // Importante para CORS en desarrollo
+      const response = await api.get('/floresinc/v1/menu', {
+        timeout: 10000 // 10 segundos de timeout
       });
       
       console.log('Respuesta del menú:', response.data);
@@ -30,13 +23,9 @@ const menuService = {
       console.error('Error al obtener el menú:', error);
       
       // Mostrar información más detallada para depuración
-      if (axios.isAxiosError(error)) {
+      if (error instanceof Error) {
         console.error('Detalles del error:', {
-          mensaje: error.message,
-          url: error.config?.url,
-          método: error.config?.method,
-          respuesta: error.response?.data,
-          estado: error.response?.status
+          mensaje: error.message
         });
       }
       

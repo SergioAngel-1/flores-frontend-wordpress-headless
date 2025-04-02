@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import floresLogo from '../../assets/images/flores-logo.png';
 import { gsap } from 'gsap';
-import { cartService } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCart } from '../../contexts/CartContext';
 import ProfileModal from '../profile/ProfileModal';
 import HiperofertasModal from '../products/HiperofertasModal';
 import HelpModal from '../help/HelpModal';
@@ -29,12 +29,12 @@ const Header = () => {
   const [activeTab, setActiveTab] = useState('inicio');
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
-  const [cartItemCount, setCartItemCount] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeProfileSection, setActiveProfileSection] = useState<'profile' | 'addresses' | 'orders' | 'favorites'>('profile');
+  const [activeProfileSection, setActiveProfileSection] = useState<'profile' | 'addresses' | 'orders' | 'referrals'>('profile');
   const searchRef = useRef<HTMLDivElement>(null);
   const { isAuthenticated } = useAuth();
+  const { items } = useCart();
 
   // Obtener categorías del menú desde WordPress
   const { menuCategories, loading: menuLoading } = useWordPressMenu();
@@ -43,7 +43,7 @@ const Header = () => {
   const toggleMobileMenu = () => setIsMenuOpen(!isMenuOpen);
 
   // Abrir modal de perfil
-  const openProfileModal = (section: 'profile' | 'addresses' | 'orders' | 'favorites' = 'profile') => {
+  const openProfileModal = (section: 'profile' | 'addresses' | 'orders' | 'referrals' = 'profile') => {
     setActiveProfileSection(section);
     setIsProfileModalOpen(true);
   };
@@ -105,31 +105,8 @@ const Header = () => {
     setIsWalletModalOpen(false);
   };
 
-  // Actualizar contador de carrito
-  useEffect(() => {
-    const updateCartCount = async () => {
-      try {
-        const count = cartService.getItemCount();
-        setCartItemCount(count);
-      } catch (error) {
-        console.error('Error al obtener el contador del carrito:', error);
-      }
-    };
-
-    // Actualizar al montar el componente
-    updateCartCount();
-    
-    // Escuchar eventos de actualización del carrito
-    window.addEventListener('cart-updated', updateCartCount);
-    
-    // Actualizar cada 30 segundos como respaldo
-    const interval = setInterval(updateCartCount, 30000);
-    
-    return () => {
-      window.removeEventListener('cart-updated', updateCartCount);
-      clearInterval(interval);
-    };
-  }, []);
+  // Calcular el número de elementos en el carrito
+  const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
 
   // Efecto para manejar el scroll
   useEffect(() => {

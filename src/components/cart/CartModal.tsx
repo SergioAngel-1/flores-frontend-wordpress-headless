@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { FiX, FiTrash2, FiPlus, FiMinus } from 'react-icons/fi';
-import { cartService } from '../../services/api';
+import React, { useEffect } from 'react';
+import { FiX, FiTrash2, FiShoppingCart, FiCreditCard } from 'react-icons/fi';
 import { formatCurrency } from '../../utils/formatters';
-import { CartItem } from '../../types/woocommerce';
 import ScrollToTopLink from '../common/ScrollToTopLink';
+import { useCart } from '../../contexts/CartContext';
+import QuantityCounter from '../common/QuantityCounter';
 
 interface CartModalProps {
   isOpen: boolean;
@@ -11,199 +11,133 @@ interface CartModalProps {
 }
 
 const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [total, setTotal] = useState(0);
+  const { items: cartItems, total, removeItem } = useCart();
 
-  // Cargar items del carrito
+  // Cerrar el modal al presionar Escape
   useEffect(() => {
-    if (isOpen) {
-      loadCartItems();
-    }
-  }, [isOpen]);
-
-  // Escuchar eventos de actualización del carrito
-  useEffect(() => {
-    const handleCartUpdated = () => {
-      loadCartItems();
-    };
-
-    window.addEventListener('cart-updated', handleCartUpdated);
-    return () => window.removeEventListener('cart-updated', handleCartUpdated);
-  }, []);
-
-  const loadCartItems = () => {
-    try {
-      const items = cartService.getItems();
-      console.log('CartModal: Items cargados:', items);
-      
-      if (items && Array.isArray(items)) {
-        // Filtrar items inválidos (sin producto o sin datos completos)
-        const validItems = items.filter(item => 
-          item && 
-          item.product && 
-          item.product.id && 
-          item.product.name
-        );
-        
-        setCartItems(validItems);
-      } else {
-        console.error('CartModal: Formato de items inválido:', items);
-        setCartItems([]);
+    const handleEscapeKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
       }
-      
-      setTotal(cartService.getTotal());
-    } catch (error) {
-      console.error('CartModal: Error al cargar items:', error);
-      setCartItems([]);
-      setTotal(0);
-    }
-  };
-
-  const handleUpdateQuantity = (productId: number, newQuantity: number) => {
-    if (newQuantity <= 0) {
-      handleRemoveItem(productId);
-      return;
-    }
+    };
     
-    cartService.updateItemQuantity(productId, newQuantity);
-    loadCartItems();
-    
-    // Disparar evento para actualizar el contador del carrito en el header
-    window.dispatchEvent(new CustomEvent('cart-updated'));
-  };
-
+    window.addEventListener('keydown', handleEscapeKey);
+    return () => window.removeEventListener('keydown', handleEscapeKey);
+  }, [onClose]);
+  
+  // Manejar eliminación de item
   const handleRemoveItem = (productId: number) => {
-    cartService.removeItem(productId);
-    loadCartItems();
-    
-    // Disparar evento para actualizar el contador del carrito en el header
-    window.dispatchEvent(new CustomEvent('cart-updated'));
+    removeItem(productId);
   };
 
-  // Prevenir que el clic dentro del modal se propague al overlay
-  const handleModalClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
+  // Si el modal no está abierto, no renderizar nada
+  if (!isOpen) return null;
 
   return (
-    <div 
-      className={`fixed inset-0 bg-black/50 backdrop-blur-sm z-50 transition-all duration-300 ${
-        isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 overflow-hidden">
+      {/* Overlay con efecto de desenfoque */}
       <div 
-        className={`fixed top-0 right-0 h-full w-full max-w-md bg-white/95 backdrop-blur-md shadow-xl transition-all duration-500 transform ${
-          isOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
-        } overflow-auto`}
-        onClick={handleModalClick}
-      >
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white/90 backdrop-blur-sm z-10">
-          <h2 className="text-xl font-bold text-primario">Tu Carrito</h2>
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm" 
+        onClick={onClose}
+      ></div>
+      
+      {/* Panel lateral del carrito */}
+      <div className="absolute top-0 right-0 h-full w-full max-w-md bg-white shadow-xl transform transition-transform duration-300 ease-in-out flex flex-col">
+        {/* Cabecera del carrito */}
+        <div className="flex justify-between items-center p-4 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-800">Tu Carrito</h2>
           <button 
             onClick={onClose}
-            className="text-gray-500 hover:text-primario transition-colors p-2 rounded-full hover:bg-gray-100"
+            className="p-2 rounded-full hover:bg-gray-100 transition-colors"
             aria-label="Cerrar carrito"
           >
-            <FiX size={24} />
+            <FiX className="w-5 h-5" />
           </button>
         </div>
-
-        {cartItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center flex-grow h-[calc(100vh-180px)] p-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <p className="text-gray-500 text-center mb-4">Tu carrito está vacío</p>
-            <ScrollToTopLink 
-              to="/tienda" 
-              className="bg-primario text-white py-2 px-4 rounded hover:bg-hover transition-colors"
-              onClick={onClose}
-            >
-              Ver productos
-            </ScrollToTopLink>
-          </div>
-        ) : (
-          <div className="overflow-auto h-[calc(100vh-180px)]">
-            <div className="divide-y divide-gray-200">
+        
+        {/* Contenido del carrito */}
+        <div className="flex-grow overflow-y-auto p-4">
+          {cartItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <p className="text-gray-500 mb-4">Tu carrito está vacío</p>
+              <button 
+                onClick={onClose}
+                className="px-4 py-2 bg-primario text-white rounded-md hover:bg-primario-dark transition-colors"
+              >
+                Continuar comprando
+              </button>
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-200">
               {cartItems.map((item) => (
-                <div key={item.product.id} className="p-4 flex items-center" data-component-name="CartModal">
-                  <div className="w-20 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                    {item.product.images && item.product.images.length > 0 && item.product.images[0].src ? (
-                      <img src={item.product.images[0].src} alt={item.product.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                        <span className="text-2xl">🛍️</span>
-                      </div>
-                    )}
+                <li key={item.id} className="py-4 flex">
+                  {/* Imagen del producto */}
+                  <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
+                    <img
+                      src={item.product.images[0]?.src || '/wp-content/themes/FloresInc/assets/img/no-image.svg'}
+                      alt={item.product.name}
+                      className="h-full w-full object-cover object-center"
+                    />
                   </div>
                   
-                  <div className="ml-4 flex-grow">
-                    <h3 className="font-medium text-sm line-clamp-2">{item.product.name}</h3>
-                    <p className="text-primario font-bold mt-1">
-                      {formatCurrency(item.product.price)}
+                  {/* Información del producto */}
+                  <div className="flex-1 ml-3">
+                    <h3 className="text-sm font-medium text-gray-900">
+                      {item.product.name}
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {formatCurrency(item.product.price)} x {item.quantity}
                     </p>
                     
-                    <div className="flex items-center justify-between mt-2">
-                      <div className="flex items-center border border-gray-300 rounded">
-                        <button 
-                          onClick={() => handleUpdateQuantity(item.product.id, item.quantity - 1)}
-                          className="px-2 py-1 text-gray-500 hover:text-primario transition-all"
-                          aria-label="Disminuir cantidad"
-                        >
-                          <FiMinus size={16} />
-                        </button>
-                        <span className="px-2 py-1 min-w-[30px] text-center">{item.quantity}</span>
-                        <button 
-                          onClick={() => handleUpdateQuantity(item.product.id, item.quantity + 1)}
-                          className="px-2 py-1 text-gray-500 hover:text-primario transition-all"
-                          aria-label="Aumentar cantidad"
-                        >
-                          <FiPlus size={16} />
-                        </button>
-                      </div>
-                      
+                    {/* Controles de cantidad */}
+                    <div className="flex justify-between items-center mt-2">
+                      <QuantityCounter 
+                        productId={item.id}
+                        quantity={item.quantity}
+                        productName={item.product.name}
+                        size="sm"
+                      />
                       <button 
-                        onClick={() => handleRemoveItem(item.product.id)}
-                        className="text-red-500 hover:text-red-700 p-1 transition-all"
-                        aria-label="Eliminar producto"
+                        onClick={() => handleRemoveItem(item.id)}
+                        className="font-medium text-red-600 hover:text-red-500 flex items-center"
                       >
-                        <FiTrash2 size={18} />
+                        <FiTrash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                </div>
+                </li>
               ))}
+            </ul>
+          )}
+        </div>
+        
+        {/* Footer con total y botones */}
+        {cartItems.length > 0 && (
+          <div className="border-t border-gray-200 p-4 bg-gray-50 mt-auto">
+            <div className="flex justify-between text-base font-medium text-gray-900 mb-4">
+              <p>Total</p>
+              <p>{formatCurrency(total)}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <ScrollToTopLink 
+                to="/carrito" 
+                className="flex items-center justify-center rounded-md border border-primario px-6 py-3 text-base font-medium text-primario hover:bg-gray-100"
+                onClick={onClose}
+              >
+                <FiShoppingCart className="mr-2" />
+                Ver carrito
+              </ScrollToTopLink>
+              <ScrollToTopLink 
+                to="/checkout" 
+                className="flex items-center justify-center rounded-md border border-transparent bg-primario px-6 py-3 text-base font-medium text-white hover:bg-primario-dark hover:!text-white"
+                onClick={onClose}
+              >
+                <FiCreditCard className="mr-2" />
+                Pagar ahora
+              </ScrollToTopLink>
             </div>
           </div>
         )}
-        
-        {/* Footer con total siempre visible */}
-        <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-gray-200 p-4">
-          <div className="flex justify-between items-center mb-4">
-            <span className="font-medium">Total:</span>
-            <span className="text-xl font-bold text-primario">
-              {formatCurrency(total)}
-            </span>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <ScrollToTopLink 
-              to="/carrito" 
-              className="bg-white border border-primario text-primario py-2 px-4 rounded text-center hover:bg-primario/10 transition-colors"
-              onClick={onClose}
-            >
-              Ver carrito
-            </ScrollToTopLink>
-            <ScrollToTopLink 
-              to="/checkout" 
-              className="bg-primario text-white py-2 px-4 rounded text-center hover:bg-hover transition-colors"
-              onClick={onClose}
-            >
-              Finalizar compra
-            </ScrollToTopLink>
-          </div>
-        </div>
       </div>
     </div>
   );

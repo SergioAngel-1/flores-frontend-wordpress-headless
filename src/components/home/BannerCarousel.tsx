@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import gsap from "gsap";
 import { useGSAP } from "@gsap/react";
+import logger from "../../utils/logger";
 
 // Registrar el plugin useGSAP
 gsap.registerPlugin(useGSAP);
@@ -65,7 +66,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
         return;
       }
 
-      console.log(`Animando transición de ${fromIndex} a ${toIndex}, tipo: ${isCarouselImage ? 'carrusel' : 'banner'}`);
+      logger.debug('BannerCarousel', `Animando transición de ${fromIndex} a ${toIndex}, tipo: ${isCarouselImage ? 'carrusel' : 'banner'}`);
 
       // Timeline para transición suave
       const tl = gsap.timeline({
@@ -117,7 +118,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   // Función para avanzar al siguiente banner - usando useCallback para mantener la referencia estable
   const nextBanner = useCallback(() => {
     if (banners.length === 0 || isAnimating) {
-      console.log("No hay banners disponibles o hay una animación en curso");
+      logger.debug('BannerCarousel', "No hay banners disponibles o hay una animación en curso");
       return;
     }
 
@@ -132,9 +133,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
       // Si hay más de una imagen en el carrusel, avanzar a la siguiente imagen
       const nextCarouselImage =
         (currentCarouselImage + 1) % currentBannerObject.carouselImages.length;
-      console.log(
-        `Avanzando a la imagen ${nextCarouselImage} del carrusel en el banner ${currentBanner}`,
-      );
+      logger.debug('BannerCarousel', `Avanzando a la imagen ${nextCarouselImage} del carrusel en el banner ${currentBanner}`);
 
       // Primero animar la transición y dentro del callback actualizar el estado
       animateTransition(currentCarouselImage, nextCarouselImage, true, () => {
@@ -143,7 +142,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     } else if (banners.length > 1) {
       // Si hay más de un banner, avanzar al siguiente banner
       const nextIndex = (currentBanner + 1) % banners.length;
-      console.log(`Avanzando al banner ${nextIndex} desde ${currentBanner}`);
+      logger.debug('BannerCarousel', `Avanzando al banner ${nextIndex} desde ${currentBanner}`);
 
       // Primero animar la transición y dentro del callback actualizar el estado
       animateTransition(currentBanner, nextIndex, false, () => {
@@ -151,7 +150,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
         setCurrentCarouselImage(0);
       });
     } else {
-      console.log("Solo hay un banner sin múltiples imágenes de carrusel");
+      logger.debug('BannerCarousel', "Solo hay un banner sin múltiples imágenes de carrusel");
     }
   }, [
     banners,
@@ -164,7 +163,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   // Función para retroceder al banner anterior
   const prevBanner = useCallback(() => {
     if (banners.length === 0 || isAnimating) {
-      console.log("No hay banners disponibles o hay una animación en curso");
+      logger.debug('BannerCarousel', "No hay banners disponibles o hay una animación en curso");
       return;
     }
 
@@ -180,9 +179,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
       const imagesCount = currentBannerObject.carouselImages.length;
       const prevCarouselImage =
         (currentCarouselImage - 1 + imagesCount) % imagesCount;
-      console.log(
-        `Retrocediendo a la imagen ${prevCarouselImage} del carrusel en el banner ${currentBanner}`,
-      );
+      logger.debug('BannerCarousel', `Retrocediendo a la imagen ${prevCarouselImage} del carrusel en el banner ${currentBanner}`);
 
       // Primero animar la transición y dentro del callback actualizar el estado
       animateTransition(currentCarouselImage, prevCarouselImage, true, () => {
@@ -191,9 +188,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     } else if (banners.length > 1) {
       // Si hay más de un banner, retroceder al banner anterior
       const prevIndex = (currentBanner - 1 + banners.length) % banners.length;
-      console.log(
-        `Retrocediendo al banner ${prevIndex} desde ${currentBanner}`,
-      );
+      logger.debug('BannerCarousel', `Retrocediendo al banner ${prevIndex} desde ${currentBanner}`);
 
       // Primero animar la transición y dentro del callback actualizar el estado
       animateTransition(currentBanner, prevIndex, false, () => {
@@ -201,7 +196,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
         setCurrentCarouselImage(0);
       });
     } else {
-      console.log("Solo hay un banner sin múltiples imágenes de carrusel");
+      logger.debug('BannerCarousel', "Solo hay un banner sin múltiples imágenes de carrusel");
     }
   }, [
     banners,
@@ -217,7 +212,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
       return;
     }
     
-    console.log(`Yendo al banner ${index} desde ${currentBanner}`);
+    logger.debug('BannerCarousel', `Yendo al banner ${index} desde ${currentBanner}`);
     
     // Animar la transición y luego actualizar el estado
     animateTransition(currentBanner, index, false, () => {
@@ -237,7 +232,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
       return;
     }
     
-    console.log(`Yendo a la imagen ${index} del carrusel desde ${currentCarouselImage}`);
+    logger.debug('BannerCarousel', `Yendo a la imagen ${index} del carrusel desde ${currentCarouselImage}`);
     
     // Animar la transición y luego actualizar el estado
     animateTransition(currentCarouselImage, index, true, () => {
@@ -249,9 +244,9 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   const startCarousel = useCallback(() => {
     if (intervalRef.current || banners.length <= 1) return;
 
-    console.log("Iniciando carrusel automático");
+    logger.debug('BannerCarousel', "Iniciando carrusel automático");
     intervalRef.current = setInterval(() => {
-      console.log("Ejecución automática - avanzando al siguiente banner");
+      logger.debug('BannerCarousel', "Ejecución automática - avanzando al siguiente banner");
       nextBanner();
     }, 10000); // Cambiado de 5000 a 10000 ms (10 segundos)
 
@@ -262,7 +257,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   const stopCarousel = useCallback(() => {
     if (!intervalRef.current) return;
 
-    console.log("Deteniendo carrusel automático");
+    logger.debug('BannerCarousel', "Deteniendo carrusel automático");
     clearInterval(intervalRef.current);
     intervalRef.current = null;
 
@@ -271,7 +266,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
   // Efecto para iniciar/detener el carrusel automático cuando cambian los banners
   useEffect(() => {
-    console.log(`Inicializando carrusel con ${banners.length} banners`);
+    logger.debug('BannerCarousel', `Inicializando carrusel con ${banners.length} banners`);
 
     // Limpiar cualquier intervalo existente
     if (intervalRef.current) {
@@ -284,7 +279,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
     if (banners.length > 1) {
       shouldAutoplay = true;
-      console.log("Hay múltiples banners, iniciando autoplay");
+      logger.debug('BannerCarousel', "Hay múltiples banners, iniciando autoplay");
     } else if (banners.length === 1) {
       const firstBanner = banners[0];
       if (
@@ -293,7 +288,8 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
         firstBanner.carouselImages.length > 1
       ) {
         shouldAutoplay = true;
-        console.log(
+        logger.debug(
+          'BannerCarousel',
           `El único banner tiene ${firstBanner.carouselImages.length} imágenes de carrusel, iniciando autoplay`,
         );
       }
@@ -302,11 +298,11 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     if (shouldAutoplay) {
       startCarousel();
     } else {
-      console.log("No hay suficientes banners o imágenes para autoplay");
+      logger.debug('BannerCarousel', "No hay suficientes banners o imágenes para autoplay");
     }
 
     return () => {
-      console.log("Limpiando carrusel automático");
+      logger.debug('BannerCarousel', "Limpiando carrusel automático");
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -319,7 +315,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
   // Funciones de manejo de eventos
   const handlePrevClick = (e: React.MouseEvent) => {
-    console.log("Clic en botón anterior");
+    logger.debug('BannerCarousel', "Clic en botón anterior");
     e.preventDefault();
     e.stopPropagation();
     stopCarousel();
@@ -330,7 +326,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   };
 
   const handleNextClick = (e: React.MouseEvent) => {
-    console.log("Clic en botón siguiente");
+    logger.debug('BannerCarousel', "Clic en botón siguiente");
     e.preventDefault();
     e.stopPropagation();
     stopCarousel();
@@ -341,7 +337,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   };
 
   const handleIndicatorClick = (e: React.MouseEvent, index: number) => {
-    console.log(`Clic en indicador ${index}`);
+    logger.debug('BannerCarousel', `Clic en indicador ${index}`);
     e.preventDefault();
     e.stopPropagation();
     stopCarousel();
@@ -352,7 +348,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   };
 
   const handleCarouselIndicatorClick = (e: React.MouseEvent, index: number) => {
-    console.log(`Clic en indicador de carrusel ${index}`);
+    logger.debug('BannerCarousel', `Clic en indicador de carrusel ${index}`);
     e.preventDefault();
     e.stopPropagation();
     stopCarousel();
@@ -364,8 +360,8 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
 
   // Verificar si hay banners disponibles
   useEffect(() => {
-    console.log("Banners recibidos en BannerCarousel:", banners);
-    console.log("Cantidad de banners:", banners.length);
+    logger.debug('BannerCarousel', "Banners recibidos en BannerCarousel:", banners);
+    logger.debug('BannerCarousel', "Cantidad de banners:", banners.length);
 
     // Inicializar el array de referencias a elementos
     bannerElements.current = banners.map(() => null);
@@ -373,24 +369,25 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     if (banners.length > 0) {
       // Validar las imágenes de los banners
       banners.forEach((banner, index) => {
-        console.log(`Banner ${index}:`, banner);
-        console.log(`Banner ${index} ID:`, banner.id);
-        console.log(`Banner ${index} Título:`, banner.title);
+        logger.debug('BannerCarousel', `Banner ${index}:`, banner);
+        logger.debug('BannerCarousel', `Banner ${index} ID:`, banner.id);
+        logger.debug('BannerCarousel', `Banner ${index} Título:`, banner.title);
 
         if (banner.image) {
-          console.log(`Banner ${index} tiene imagen:`, banner.image);
+          logger.debug('BannerCarousel', `Banner ${index} tiene imagen:`, banner.image);
         } else {
-          console.warn(`Banner ${index} no tiene imagen`);
+          logger.warn('BannerCarousel', `Banner ${index} no tiene imagen`);
         }
 
         if (banner.carouselImages && banner.carouselImages.length > 0) {
-          console.log(
+          logger.debug(
+            'BannerCarousel',
             `Banner ${index} tiene ${banner.carouselImages.length} imágenes de carrusel`,
           );
         }
       });
     } else {
-      console.warn("No se recibieron banners en BannerCarousel");
+      logger.warn('BannerCarousel', "No se recibieron banners en BannerCarousel");
     }
   }, [banners]);
 
@@ -496,9 +493,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
                                 index === 0 && imgIndex === 0 ? "eager" : "lazy"
                               }
                               onError={(e) => {
-                                console.error(
-                                  `Error loading carousel image ${imgIndex} for banner ID ${banner.id}`,
-                                );
+                                logger.error('BannerCarousel', `Error loading carousel image ${imgIndex} for banner ID ${banner.id}`);
                                 const target = e.target as HTMLImageElement;
                                 target.style.display = "none";
                                 target.parentElement!.style.backgroundColor =

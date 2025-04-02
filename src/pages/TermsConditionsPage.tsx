@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_WP_API_URL || 'http://flores.local';
+import { api } from '../services/apiConfig';
 
 const TermsConditionsPage = () => {
   const [loading, setLoading] = useState(true);
@@ -20,7 +18,7 @@ const TermsConditionsPage = () => {
     const fetchTermsConditions = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${API_URL}/wp-json/floresinc/v1/legal/terms_conditions`);
+        const response = await api.get('/floresinc/v1/legal/terms_conditions');
         
         if (response.data.data) {
           setTermsData({

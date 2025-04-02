@@ -45,16 +45,10 @@ const ShopPage = () => {
 
     // Usar el nuevo método para buscar categorías por slug
     categoryService.getBySlug(slug)
-      .then(response => {
-        if (response.data && response.data.length > 0) {
-          const category = response.data[0];
-          console.log('ShopPage: Categoría encontrada:', category);
-          setSelectedCategory(category.id);
-          setCategoryName(category.name);
-        } else {
-          console.log('ShopPage: Respuesta vacía al buscar categoría');
-          throw new Error('Categoría no encontrada');
-        }
+      .then(category => {
+        console.log('ShopPage: Categoría encontrada:', category);
+        setSelectedCategory(category.id);
+        setCategoryName(category.name);
       })
       .catch(error => {
         console.error('ShopPage: Error al buscar categoría por slug:', error);

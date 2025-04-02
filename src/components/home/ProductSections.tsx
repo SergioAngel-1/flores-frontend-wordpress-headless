@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { api } from '../../services/apiConfig';
 import ProductCard from '../products/ProductCard';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { Product } from '../../types/woocommerce';
@@ -36,17 +36,10 @@ const ProductSection: React.FC<ProductSectionsProps> = ({ sectionId, className =
       
       try {
         setLoading(true);
-        // Usar la URL base de la API de WordPress configurada en las variables de entorno
-        const apiUrl = `${import.meta.env.VITE_WP_API_URL || ''}/wp-json/floresinc/v1/home-sections/${sectionId}`;
-        console.log(`Intentando obtener sección ${sectionId} desde:`, apiUrl);
+        console.log(`Obteniendo sección ${sectionId}...`);
         
-        const response = await axios.get(apiUrl, {
-          timeout: 10000, // 10 segundos de timeout
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          withCredentials: false // Importante para CORS en desarrollo
+        const response = await api.get(`/floresinc/v1/home-sections/${sectionId}`, {
+          timeout: 10000 // 10 segundos de timeout
         });
         
         console.log(`Datos de la sección ${sectionId}:`, response.data);
@@ -131,8 +124,8 @@ const ProductSection: React.FC<ProductSectionsProps> = ({ sectionId, className =
 };
 
 // Hook personalizado para obtener todas las secciones
-export const useHomeSections = () => {
-  const [allSections, setAllSections] = useState<{[key: string]: Section}>({});
+const useHomeSections = () => {
+  const [sections, setSections] = useState<{[key: string]: Section}>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const dataFetchedRef = useRef(false);
@@ -145,17 +138,10 @@ export const useHomeSections = () => {
       
       try {
         setLoading(true);
-        // Usar la URL base de la API de WordPress configurada en las variables de entorno
-        const apiUrl = `${import.meta.env.VITE_WP_API_URL || ''}/wp-json/floresinc/v1/home-sections`;
-        console.log('Intentando obtener todas las secciones desde:', apiUrl);
+        console.log('Obteniendo todas las secciones de productos...');
         
-        const response = await axios.get(apiUrl, {
-          timeout: 10000, // 10 segundos de timeout
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          withCredentials: false // Importante para CORS en desarrollo
+        const response = await api.get('/floresinc/v1/home-sections', {
+          timeout: 10000 // 10 segundos de timeout
         });
         
         console.log('Datos de todas las secciones:', response.data);
@@ -166,7 +152,7 @@ export const useHomeSections = () => {
           sectionsObj[section.id] = section;
         });
         
-        setAllSections(sectionsObj);
+        setSections(sectionsObj);
         setError(null);
       } catch (err) {
         console.error('Error fetching home sections:', err);
@@ -184,43 +170,43 @@ export const useHomeSections = () => {
     };
   }, []);
   
-  return { allSections, loading, error };
+  return { sections, loading, error };
 };
 
 // Componentes individuales para cada ubicación en el home
-export const TopProductSections: React.FC = () => {
-  const { allSections, loading, error } = useHomeSections();
+const TopProductSections: React.FC = () => {
+  const { sections, loading, error } = useHomeSections();
 
-  if (loading || error || Object.keys(allSections).length === 0) {
+  if (loading || error || Object.keys(sections).length === 0) {
     return null;
   }
 
   return (
     <>
-      {allSections.section_top_1 && <ProductSection sectionId="section_top_1" />}
-      {allSections.section_top_2 && <ProductSection sectionId="section_top_2" />}
+      {sections.section_top_1 && <ProductSection sectionId="section_top_1" />}
+      {sections.section_top_2 && <ProductSection sectionId="section_top_2" />}
     </>
   );
 };
 
-export const MiddleProductSections: React.FC = () => {
-  const { allSections, loading, error } = useHomeSections();
+const MiddleProductSections: React.FC = () => {
+  const { sections, loading, error } = useHomeSections();
 
-  if (loading || error || Object.keys(allSections).length === 0) {
+  if (loading || error || Object.keys(sections).length === 0) {
     return null;
   }
 
   return (
     <>
-      {allSections.section_middle_1 && <ProductSection sectionId="section_middle_1" />}
-      {allSections.section_middle_2 && <ProductSection sectionId="section_middle_2" />}
+      {sections.section_middle_1 && <ProductSection sectionId="section_middle_1" />}
+      {sections.section_middle_2 && <ProductSection sectionId="section_middle_2" />}
     </>
   );
 };
 
 // Componente para las secciones finales (ambas en un mismo contenedor)
-export const BottomProductSections: React.FC = () => {
-  const { allSections, loading, error } = useHomeSections();
+const BottomProductSections: React.FC = () => {
+  const { sections, loading, error } = useHomeSections();
   const [section1, setSection1] = useState<Section | null>(null);
   const [section2, setSection2] = useState<Section | null>(null);
   const [loading1, setLoading1] = useState<boolean>(false);
@@ -232,7 +218,7 @@ export const BottomProductSections: React.FC = () => {
 
   // Cargar datos de la sección final 1
   useEffect(() => {
-    if (allSections.section_bottom_1) {
+    if (sections.section_bottom_1) {
       const fetchSection1Data = async () => {
         // Evitar múltiples cargas durante el renderizado
         if (dataFetched1Ref.current) return;
@@ -240,16 +226,10 @@ export const BottomProductSections: React.FC = () => {
         
         try {
           setLoading1(true);
-          const apiUrl = `${import.meta.env.VITE_WP_API_URL || ''}/wp-json/floresinc/v1/home-sections/section_bottom_1`;
-          console.log('Cargando sección final 1 desde:', apiUrl);
+          console.log('Cargando sección final 1...');
           
-          const response = await axios.get(apiUrl, {
-            timeout: 10000,
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            withCredentials: false
+          const response = await api.get('/floresinc/v1/home-sections/section_bottom_1', {
+            timeout: 10000
           });
           
           console.log('Datos de sección final 1:', response.data);
@@ -270,11 +250,11 @@ export const BottomProductSections: React.FC = () => {
         dataFetched1Ref.current = false;
       };
     }
-  }, [allSections.section_bottom_1]);
+  }, [sections.section_bottom_1]);
 
   // Cargar datos de la sección final 2
   useEffect(() => {
-    if (allSections.section_bottom_2) {
+    if (sections.section_bottom_2) {
       const fetchSection2Data = async () => {
         // Evitar múltiples cargas durante el renderizado
         if (dataFetched2Ref.current) return;
@@ -282,16 +262,10 @@ export const BottomProductSections: React.FC = () => {
         
         try {
           setLoading2(true);
-          const apiUrl = `${import.meta.env.VITE_WP_API_URL || ''}/wp-json/floresinc/v1/home-sections/section_bottom_2`;
-          console.log('Cargando sección final 2 desde:', apiUrl);
+          console.log('Cargando sección final 2...');
           
-          const response = await axios.get(apiUrl, {
-            timeout: 10000,
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-            },
-            withCredentials: false
+          const response = await api.get('/floresinc/v1/home-sections/section_bottom_2', {
+            timeout: 10000
           });
           
           console.log('Datos de sección final 2:', response.data);
@@ -312,15 +286,15 @@ export const BottomProductSections: React.FC = () => {
         dataFetched2Ref.current = false;
       };
     }
-  }, [allSections.section_bottom_2]);
+  }, [sections.section_bottom_2]);
 
   // Si no hay secciones configuradas o hay un error general, no mostrar nada
-  if (loading || error || Object.keys(allSections).length === 0) {
+  if (loading || error || Object.keys(sections).length === 0) {
     return null;
   }
 
   // Si no hay ninguna sección final configurada, no mostrar nada
-  if (!allSections.section_bottom_1 && !allSections.section_bottom_2) {
+  if (!sections.section_bottom_1 && !sections.section_bottom_2) {
     return null;
   }
 
@@ -328,17 +302,17 @@ export const BottomProductSections: React.FC = () => {
     <div className="bg-white py-8">
       <div className="container mx-auto px-16 md:px-16 max-w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-24">
-          {allSections.section_bottom_1 && (
+          {sections.section_bottom_1 && (
             <div className="flex flex-col h-full">
               <div className="flex justify-between items-center mb-6">
                 <div className="text-left">
-                  <h2 className="text-3xl font-bold text-primario mb-2">{allSections.section_bottom_1.title}</h2>
-                  {allSections.section_bottom_1.subtitle && (
-                    <p className="text-gray-600">{allSections.section_bottom_1.subtitle}</p>
+                  <h2 className="text-3xl font-bold text-primario mb-2">{sections.section_bottom_1.title}</h2>
+                  {sections.section_bottom_1.subtitle && (
+                    <p className="text-gray-600">{sections.section_bottom_1.subtitle}</p>
                   )}
                 </div>
                 <Link 
-                  to={`/categoria/${allSections.section_bottom_1.category_slug}`}
+                  to={`/categoria/${sections.section_bottom_1.category_slug}`}
                   className="inline-block bg-primario border border-primario text-white py-2 px-6 rounded-md hover:scale-105 hover:text-[var(--claro)] transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   Ver más
@@ -361,17 +335,17 @@ export const BottomProductSections: React.FC = () => {
             </div>
           )}
           
-          {allSections.section_bottom_2 && (
+          {sections.section_bottom_2 && (
             <div className="flex flex-col h-full">
               <div className="flex justify-between items-center mb-6">
                 <div className="text-left">
-                  <h2 className="text-3xl font-bold text-primario mb-2">{allSections.section_bottom_2.title}</h2>
-                  {allSections.section_bottom_2.subtitle && (
-                    <p className="text-gray-600">{allSections.section_bottom_2.subtitle}</p>
+                  <h2 className="text-3xl font-bold text-primario mb-2">{sections.section_bottom_2.title}</h2>
+                  {sections.section_bottom_2.subtitle && (
+                    <p className="text-gray-600">{sections.section_bottom_2.subtitle}</p>
                   )}
                 </div>
                 <Link 
-                  to={`/categoria/${allSections.section_bottom_2.category_slug}`}
+                  to={`/categoria/${sections.section_bottom_2.category_slug}`}
                   className="inline-block bg-primario border border-primario text-white py-2 px-6 rounded-md hover:scale-105 hover:text-[var(--claro)] transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   Ver más
