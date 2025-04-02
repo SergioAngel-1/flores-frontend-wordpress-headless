@@ -14,6 +14,7 @@ interface ProductEditModalProps {
     catalog_short_description?: string | null;
     catalog_image?: string | null;
     catalog_images?: string[];
+    is_custom?: boolean;
   };
   onClose: () => void;
   onSave?: (productId: number, updatedData: CatalogProductInput) => Promise<void>;
@@ -88,7 +89,8 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
         catalog_short_description: shortDescription,
         catalog_description: description,
         catalog_image: mainImage,
-        catalog_images: [secondaryImage1, secondaryImage2].filter(img => img.trim() !== '')
+        catalog_images: [secondaryImage1, secondaryImage2].filter(img => img.trim() !== ''),
+        is_custom: product.is_custom || false // Mantener el valor existente o establecer como false por defecto
       };
       
       await onSave(product.id, updatedData);

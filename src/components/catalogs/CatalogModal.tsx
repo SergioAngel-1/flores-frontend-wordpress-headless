@@ -70,13 +70,22 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
     }
   }, [initialCatalogId]);
 
-  // Cargar productos seleccionados inicialmente
-  useEffect(() => {
-    const loadSelectedProducts = async () => {
-      if (initialProductIds.length === 0 || initialLoadRef.current) return;
-      
+  // Cargar productos seleccionados
+  const loadSelectedProducts = useCallback(async () => {
+    if (initialCatalogId && initialProductIds.length > 0) {
       try {
-        setLoading(true);
+        // Si estamos editando un catálogo existente, obtener los productos directamente de la tabla de catálogos
+        if (isEditing && initialCatalogId) {
+          const catalogProductsResponse = await catalogService.getCompleteProducts(initialCatalogId);
+          if (catalogProductsResponse && Array.isArray(catalogProductsResponse)) {
+            setSelectedProducts(catalogProductsResponse);
+            setSelectedProductIds(catalogProductsResponse.map(p => p.id));
+            return;
+          }
+        }
+        
+        // Si no estamos editando o no se pudieron obtener los productos del catálogo,
+        // usar el método anterior como fallback
         
         // Si ya tenemos los datos iniciales de los productos, usarlos directamente
         if (initialProductsData && initialProductsData.length > 0 && 
@@ -112,10 +121,10 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
               try {
                 // Asegurarnos de que no intentamos obtener productos con ID <= 0
                 const productId = catalogProduct.product_id || catalogProduct.id;
-                if (productId <= 0) {
+                if (productId <= 0 || !productId) {
                   // Es un producto personalizado sin datos suficientes
                   return {
-                    id: catalogProduct.id,
+                    id: catalogProduct.id || 0,
                     name: catalogProduct.catalog_name || 'Producto personalizado',
                     price: catalogProduct.catalog_price?.toString() || '0',
                     description: catalogProduct.catalog_description || '',
@@ -134,24 +143,48 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
                   };
                 }
                 
-                const response = await productService.getById(productId);
-                const product = response.data;
-                
-                // Combinar con datos del catálogo
-                return {
-                  ...product,
-                  catalog_price: catalogProduct.catalog_price,
-                  catalog_name: catalogProduct.catalog_name,
-                  catalog_description: catalogProduct.catalog_description,
-                  catalog_short_description: catalogProduct.catalog_short_description,
-                  catalog_sku: catalogProduct.catalog_sku,
-                  catalog_image: catalogProduct.catalog_image,
-                  catalog_images: catalogProduct.catalog_images
-                };
+                // Verificar si el producto ya está en caché para evitar solicitudes innecesarias
+                try {
+                  const response = await productService.getById(productId);
+                  const product = response.data;
+                  
+                  // Combinar con datos del catálogo
+                  return {
+                    ...product,
+                    catalog_price: catalogProduct.catalog_price,
+                    catalog_name: catalogProduct.catalog_name,
+                    catalog_description: catalogProduct.catalog_description,
+                    catalog_short_description: catalogProduct.catalog_short_description,
+                    catalog_sku: catalogProduct.catalog_sku,
+                    catalog_image: catalogProduct.catalog_image,
+                    catalog_images: catalogProduct.catalog_images
+                  };
+                } catch (error) {
+                  console.error(`Error al cargar el producto ${productId}:`, error);
+                  
+                  // Si hay error al cargar el producto, tratarlo como producto personalizado
+                  return {
+                    id: catalogProduct.id || 0,
+                    name: catalogProduct.catalog_name || `Producto personalizado`,
+                    price: catalogProduct.catalog_price?.toString() || '0',
+                    description: catalogProduct.catalog_description || '',
+                    short_description: catalogProduct.catalog_short_description || '',
+                    sku: catalogProduct.catalog_sku || '',
+                    images: [],
+                    catalog_price: catalogProduct.catalog_price,
+                    catalog_name: catalogProduct.catalog_name,
+                    catalog_description: catalogProduct.catalog_description,
+                    catalog_short_description: catalogProduct.catalog_short_description,
+                    catalog_sku: catalogProduct.catalog_sku,
+                    catalog_image: catalogProduct.catalog_image,
+                    catalog_images: catalogProduct.catalog_images,
+                    is_custom: true
+                  };
+                }
               } catch (error) {
-                console.error(`Error al cargar el producto ${catalogProduct.product_id}:`, error);
+                console.error('Error al cargar productos:', error);
                 
-                // Si hay error al cargar el producto, usar los datos del catálogo
+                // Si hay error al cargar los productos, usar los datos del catálogo
                 return {
                   id: catalogProduct.id,
                   name: catalogProduct.catalog_name || `Producto ${catalogProduct.product_id || catalogProduct.id}`,
@@ -186,7 +219,7 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
           // Pero verificar primero si hay IDs especiales (para productos personalizados)
           const productsPromises = initialProductIds.map(async (id) => {
             // Si el ID es 0 o negativo, es un producto personalizado
-            if (id <= 0) {
+            if (id <= 0 || !id) {
               // Buscar si hay datos adicionales en initialProductsData
               const catalogData = initialProductsData?.find(p => p.id === id);
               
@@ -210,7 +243,7 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
                   is_custom: true
                 };
               } else {
-                // Producto personalizado sin datos
+                // Si no hay datos adicionales, crear un producto personalizado básico
                 return {
                   id,
                   name: 'Producto personalizado',
@@ -222,11 +255,26 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
             } else {
               // Para productos normales, obtenerlos de WooCommerce
               try {
-                const response = await productService.getById(id);
-                return response.data;
+                // Verificar si el producto ya está en caché para evitar solicitudes innecesarias
+                try {
+                  const response = await productService.getById(id);
+                  return response.data;
+                } catch (error) {
+                  console.error(`Error al cargar el producto ${id}:`, error);
+                  
+                  // Si hay error al cargar el producto, tratarlo como producto personalizado
+                  return {
+                    id,
+                    name: `Producto personalizado`,
+                    price: '0',
+                    images: [],
+                    is_custom: true
+                  };
+                }
               } catch (error) {
-                console.error(`Error al cargar el producto ${id}:`, error);
-                // Devolver un objeto básico para evitar errores
+                console.error('Error al cargar productos:', error);
+                
+                // Si hay error al cargar los productos, usar los datos del catálogo
                 return {
                   id,
                   name: `Producto ${id}`,
@@ -247,18 +295,35 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
           setSelectedProducts(uniqueProducts as Product[]);
           setSelectedProductIds(uniqueIds);
         }
+      } catch (error) {
+        console.error('Error al cargar productos seleccionados:', error);
+        alertService.error('Error al cargar productos seleccionados');
+      }
+    }
+  }, [initialCatalogId, initialProductIds, initialProductsData, isEditing]);
+
+  // Cargar productos seleccionados inicialmente
+  useEffect(() => {
+    const loadInitialProducts = async () => {
+      if (initialProductIds.length === 0 || initialLoadRef.current) return;
+      
+      try {
+        setLoading(true);
+        
+        await loadSelectedProducts();
         
         initialLoadRef.current = true;
       } catch (error) {
         console.error('Error al cargar productos seleccionados:', error);
+        alertService.error('Error al cargar productos seleccionados');
       } finally {
         setLoading(false);
       }
     };
     
-    loadSelectedProducts();
-  }, [initialProductIds, initialProductsData]);
-  
+    loadInitialProducts();
+  }, [initialProductIds, initialProductsData, loadSelectedProducts]);
+
   // Buscar productos
   useEffect(() => {
     const searchProducts = async () => {
@@ -414,13 +479,16 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
       const productsData: CatalogProductInput[] = selectedProducts.map(product => {
         // Crear un objeto base con el ID del producto
         const productData: CatalogProductInput = {
-          id: product.id
+          id: product.id,
+          product_id: product.id  // Añadir explícitamente product_id para productos de WooCommerce
         };
         
         // Si es un producto personalizado no guardado, marcarlo
         if ((product as any)._unsavedCustomProduct) {
           productData.is_custom = true;
           productData.unsaved_data = (product as any)._unsavedCustomProduct;
+          // Para productos personalizados, product_id debe ser 0
+          productData.product_id = 0;
         }
         
         // Manejar el precio específico del catálogo
@@ -435,43 +503,57 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
         const isCustom = (product as any).is_custom;
         const catalogName = (product as any).catalog_name;
         
-        if (isCustom || catalogName) {
-          // Nombre del producto en el catálogo
-          if (catalogName) {
-            productData.catalog_name = catalogName;
-          } else if (product.name) {
-            productData.catalog_name = product.name;
-          }
-          
-          // SKU del producto en el catálogo
-          const catalogSku = (product as any).catalog_sku;
-          if (catalogSku !== undefined) {
-            productData.catalog_sku = catalogSku;
-          }
-          
-          // Descripción del producto en el catálogo
-          const catalogDesc = (product as any).catalog_description;
-          if (catalogDesc !== undefined) {
-            productData.catalog_description = catalogDesc;
-          }
-          
-          // Descripción corta del producto en el catálogo
-          const catalogShortDesc = (product as any).catalog_short_description;
-          if (catalogShortDesc !== undefined) {
-            productData.catalog_short_description = catalogShortDesc;
-          }
-          
-          // Imagen principal del producto en el catálogo
-          const catalogImage = (product as any).catalog_image;
-          if (catalogImage !== undefined) {
-            productData.catalog_image = catalogImage;
-          }
-          
-          // Imágenes adicionales del producto en el catálogo
-          const catalogImages = (product as any).catalog_images;
-          if (catalogImages !== undefined && Array.isArray(catalogImages)) {
-            productData.catalog_images = catalogImages;
-          }
+        // Siempre incluir los datos del producto, sea personalizado o no
+        // Nombre del producto en el catálogo
+        if (catalogName) {
+          productData.catalog_name = catalogName;
+        } else if (product.name) {
+          productData.catalog_name = product.name;
+        }
+        
+        // SKU del producto en el catálogo
+        const catalogSku = (product as any).catalog_sku;
+        if (catalogSku !== undefined) {
+          productData.catalog_sku = catalogSku;
+        } else if (product.sku) {
+          productData.catalog_sku = product.sku;
+        }
+        
+        // Descripción del producto en el catálogo
+        const catalogDesc = (product as any).catalog_description;
+        if (catalogDesc !== undefined) {
+          productData.catalog_description = catalogDesc;
+        } else if (product.description) {
+          productData.catalog_description = product.description;
+        }
+        
+        // Descripción corta del producto en el catálogo
+        const catalogShortDesc = (product as any).catalog_short_description;
+        if (catalogShortDesc !== undefined) {
+          productData.catalog_short_description = catalogShortDesc;
+        } else if (product.short_description) {
+          productData.catalog_short_description = product.short_description;
+        }
+        
+        // Imagen principal del producto en el catálogo
+        const catalogImage = (product as any).catalog_image;
+        if (catalogImage !== undefined) {
+          productData.catalog_image = catalogImage;
+        } else if (product.images && product.images.length > 0) {
+          productData.catalog_image = product.images[0].src;
+        }
+        
+        // Imágenes adicionales del producto en el catálogo
+        const catalogImages = (product as any).catalog_images;
+        if (catalogImages !== undefined && Array.isArray(catalogImages)) {
+          productData.catalog_images = catalogImages;
+        } else if (product.images && product.images.length > 0) {
+          productData.catalog_images = product.images.map(img => img.src);
+        }
+        
+        // Marcar explícitamente si es un producto personalizado
+        if (isCustom) {
+          productData.is_custom = true;
         }
         
         return productData;
@@ -531,7 +613,8 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
         // Asegurarnos de que el ID del catálogo sea el correcto
         const productDataToSave = {
           ...customProductData,
-          catalog_id: catalogIdRef.current
+          catalog_id: catalogIdRef.current,
+          is_custom: true // Asegurar que se marque como producto personalizado
         };
         
         logger.info('CatalogModal', 'Datos del producto personalizado a guardar:', productDataToSave);

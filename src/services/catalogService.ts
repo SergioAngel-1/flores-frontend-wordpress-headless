@@ -51,6 +51,16 @@ const catalogService = {
       });
   },
 
+  // Obtener productos completos de un catálogo (con toda la información necesaria para mostrar)
+  getCompleteProducts(catalogId: number) {
+    return api.get(`/floresinc/v1/catalogs/${catalogId}/complete-products`)
+      .then(response => response.data)
+      .catch(error => {
+        console.error(`Error al obtener productos completos del catálogo ${catalogId}:`, error);
+        throw new Error(getReadableErrorMessage(error));
+      });
+  },
+
   // Crear un nuevo catálogo
   create(data: { name: string, products: CatalogProductInput[] }) {
     console.log('Datos recibidos para crear catálogo:', data);
@@ -81,7 +91,8 @@ const catalogService = {
             if (product.unsaved_data) {
               const customProductData = {
                 ...product.unsaved_data,
-                catalog_id: catalogId
+                catalog_id: catalogId,
+                is_custom: true // Marcar explícitamente como producto personalizado
               };
               
               console.log('Datos de producto personalizado a enviar:', customProductData);
@@ -116,9 +127,62 @@ const catalogService = {
   },
 
   // Actualizar un catálogo existente
-  update(catalogId: number, data: { name?: string, products?: { id: number, catalog_price?: number | null }[] }) {
-    return api.put(`/floresinc/v1/catalogs/${catalogId}`, data)
-      .then(response => response.data)
+  update(catalogId: number, data: { name?: string, products?: CatalogProductInput[] }) {
+    console.log('Datos recibidos para actualizar catálogo:', data);
+    
+    // Separar los productos personalizados no guardados de los productos regulares
+    const customUnsavedProducts = data.products ? data.products.filter(p => p.is_custom && p.unsaved_data) : [];
+    const regularProducts = data.products ? data.products.filter(p => !p.unsaved_data) : [];
+    
+    // Datos para enviar al endpoint de actualización de catálogo
+    const catalogData = {
+      name: data.name,
+      products: regularProducts
+    };
+    
+    console.log('Datos a enviar al endpoint de actualización de catálogo:', catalogData);
+    console.log('Productos personalizados a crear:', customUnsavedProducts);
+    
+    return api.put(`/floresinc/v1/catalogs/${catalogId}`, catalogData)
+      .then(async response => {
+        // Si hay productos personalizados sin guardar, crearlos ahora
+        if (customUnsavedProducts.length > 0) {
+          console.log(`Creando ${customUnsavedProducts.length} productos personalizados para el catálogo ${catalogId}`);
+          
+          // Crear cada producto personalizado
+          const createPromises = customUnsavedProducts.map(product => {
+            if (product.unsaved_data) {
+              const customProductData = {
+                ...product.unsaved_data,
+                catalog_id: catalogId,
+                is_custom: true // Marcar explícitamente como producto personalizado
+              };
+              
+              console.log('Datos de producto personalizado a enviar:', customProductData);
+              
+              return api.post('/floresinc/v1/catalogs/custom-products', customProductData)
+                .then(response => {
+                  console.log('Respuesta de creación de producto personalizado:', response.data);
+                  return response.data;
+                })
+                .catch(error => {
+                  console.error('Error al crear producto personalizado:', error);
+                  return null; // Continuar con los demás aunque uno falle
+                });
+            }
+            return Promise.resolve(null);
+          });
+          
+          // Esperar a que todos los productos personalizados se creen
+          const createdProducts = await Promise.all(createPromises);
+          console.log('Productos personalizados creados:', createdProducts);
+          
+          // Obtener los datos actualizados del catálogo
+          return this.getById(catalogId);
+        }
+        
+        return response.data;
+      })
       .catch(error => {
         console.error(`Error al actualizar catálogo ${catalogId}:`, error);
         throw new Error(getReadableErrorMessage(error));
@@ -143,6 +207,17 @@ const catalogService = {
         console.error(`Error al actualizar producto ${productData.id} del catálogo ${catalogId}:`, error);
         throw new Error(getReadableErrorMessage(error));
       });
+  },
+  
+  // Generar PDF del catálogo
+  generatePDF(catalogId: number) {
+    return api.get(`/floresinc/v1/catalogs/${catalogId}/pdf`, { 
+      responseType: 'blob' 
+    })
+    .catch(error => {
+      console.error(`Error al generar PDF del catálogo ${catalogId}:`, error);
+      throw new Error(getReadableErrorMessage(error));
+    });
   },
   
   // Crear un producto personalizado para un catálogo

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import AnimatedModal from '../components/ui/AnimatedModal';
-import { catalogService } from '../services/api';
+import catalogService from '../services/catalogService';
 import CatalogModal from '../components/catalogs/CatalogModal';
 import ProductList from '../components/catalogs/ProductList';
 import { Catalog, CatalogProduct, CatalogProductInput } from '../types/catalog';
@@ -16,6 +16,19 @@ const CatalogDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const dataFetchedRef = useRef(false);
+
+  // Función para cargar los productos del catálogo
+  const loadCatalogProducts = useCallback(async (catalogId: number) => {
+    try {
+      console.log(`Cargando productos completos del catálogo ${catalogId}...`);
+      const catalogProducts = await catalogService.getCompleteProducts(catalogId);
+      console.log('Productos cargados:', catalogProducts);
+      setProducts(catalogProducts);
+    } catch (error) {
+      console.error('Error al cargar productos del catálogo:', error);
+      alertService.error('Error al cargar los productos del catálogo');
+    }
+  }, []);
 
   // Cargar catálogo y sus productos
   useEffect(() => {
@@ -56,11 +69,8 @@ const CatalogDetailPage = () => {
         console.log('Catálogo encontrado:', foundCatalog);
         setCatalog(foundCatalog);
         
-        // Obtenemos los productos del catálogo
-        console.log(`Obteniendo productos del catálogo ${foundCatalog.id}`);
-        const catalogProducts = await catalogService.getCatalogProducts(foundCatalog.id);
-        console.log('Productos del catálogo:', catalogProducts);
-        setProducts(catalogProducts);
+        // Cargar los productos usando la función dedicada
+        await loadCatalogProducts(foundCatalog.id);
         
         dataFetchedRef.current = true;
       } catch (error) {
@@ -78,7 +88,7 @@ const CatalogDetailPage = () => {
     return () => {
       dataFetchedRef.current = false;
     };
-  }, [slug, navigate]);
+  }, [slug, navigate, loadCatalogProducts]);
 
   // Efecto para animación - solo se ejecuta cuando cambian los datos relevantes
   useEffect(() => {
@@ -119,11 +129,8 @@ const CatalogDetailPage = () => {
       
       setCatalog(updatedCatalog);
       
-      // Actualizamos los productos del catálogo
-      console.log(`Obteniendo productos actualizados del catálogo ${updatedCatalog.id}`);
-      const catalogProducts = await catalogService.getCatalogProducts(updatedCatalog.id);
-      console.log('Productos actualizados:', catalogProducts);
-      setProducts(catalogProducts);
+      // Actualizamos los productos del catálogo usando la función dedicada
+      await loadCatalogProducts(updatedCatalog.id);
       
       setShowModal(false);
       alertService.success('Catálogo actualizado exitosamente');
@@ -133,7 +140,7 @@ const CatalogDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [catalog]);
+  }, [catalog, loadCatalogProducts]);
 
   const handleUpdateProduct = useCallback(async (productId: number, updatedData: CatalogProductInput) => {
     if (!catalog) return;
