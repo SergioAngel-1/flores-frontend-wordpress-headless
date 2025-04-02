@@ -586,35 +586,97 @@ const pointsService = {
 // Servicio para catálogos
 const catalogService = {
   // Obtener todos los catálogos
-  getAll() {
-    return api.get('/floresinc/v1/catalog');
-  },
-  
-  // Obtener un catálogo por su ID
-  getById(id: number) {
-    return api.get(`/floresinc/v1/catalog/${id}`);
-  },
-  
-  // Obtener los productos de un catálogo
-  getCatalogProducts(catalogId: number) {
-    return api.get(`/floresinc/v1/catalog/${catalogId}/products`);
+  getAll(params = {}) {
+    return api.get('/floresinc/v1/catalogs', { params })
+      .then(response => response.data)
+      .catch(error => {
+        console.error('Error al obtener catálogos:', error);
+        throw new Error(getReadableErrorMessage(error));
+      });
   },
 
-  // Obtener todos los productos personalizados de un catálogo
-  getCustomProducts(catalogId: number) {
-    return api.get(`/floresinc/v1/catalog/${catalogId}/custom-products`);
+  // Obtener un catálogo por su ID
+  getById(id: number) {
+    return api.get(`/floresinc/v1/catalogs/${id}`)
+      .then(response => response.data)
+      .catch(error => {
+        console.error(`Error al obtener catálogo ${id}:`, error);
+        throw new Error(getReadableErrorMessage(error));
+      });
+  },
+
+  // Obtener los productos de un catálogo
+  getCatalogProducts(catalogId: number) {
+    return api.get(`/floresinc/v1/catalogs/${catalogId}/products`)
+      .then(response => response.data)
+      .catch(error => {
+        console.error(`Error al obtener productos del catálogo ${catalogId}:`, error);
+        throw new Error(getReadableErrorMessage(error));
+      });
   },
 
   // Obtener la configuración del catálogo (nombre, descripción, etc.)
   getCatalogConfig(catalogId: number) {
-    return api.get(`/floresinc/v1/catalog/${catalogId}/config`);
+    return api.get(`/floresinc/v1/catalogs/${catalogId}/config`)
+      .then(response => response.data)
+      .catch(error => {
+        console.error(`Error al obtener configuración del catálogo ${catalogId}:`, error);
+        throw new Error(getReadableErrorMessage(error));
+      });
   },
 
   // Generar el PDF del catálogo
   generatePDF(catalogId: number) {
-    return api.get(`/floresinc/v1/catalog/${catalogId}/pdf`, { 
-      responseType: 'blob' 
-    });
+    return api.get(`/floresinc/v1/catalogs/${catalogId}/pdf`, {
+      responseType: 'blob'
+    })
+      .then(response => {
+        return response;
+      })
+      .catch(error => {
+        console.error(`Error al generar PDF del catálogo ${catalogId}:`, error);
+        throw new Error(getReadableErrorMessage(error));
+      });
+  },
+
+  // Crear un nuevo catálogo
+  create(data: { name: string, products: { id: number, catalog_price?: number | null }[] }) {
+    console.log('API - Enviando solicitud para crear catálogo:', data);
+    return api.post('/floresinc/v1/catalogs', data)
+      .then(response => {
+        console.log('API - Respuesta de creación de catálogo:', response);
+        // Asegurarse de que estamos devolviendo los datos de la respuesta, no toda la respuesta
+        return response.data;
+      })
+      .catch(error => {
+        console.error('API - Error al crear catálogo:', error);
+        throw new Error(getReadableErrorMessage(error));
+      });
+  },
+
+  // Actualizar un catálogo existente
+  update(catalogId: number, data: { name?: string, products?: { id: number, catalog_price?: number | null }[] }) {
+    return api.put(`/floresinc/v1/catalogs/${catalogId}`, data)
+      .then(response => response.data)
+      .catch(error => {
+        console.error(`Error al actualizar catálogo ${catalogId}:`, error);
+        throw new Error(getReadableErrorMessage(error));
+      });
+  },
+
+  // Eliminar un catálogo
+  delete(catalogId: number) {
+    return api.delete(`/floresinc/v1/catalogs/${catalogId}`)
+      .then(response => response.data)
+      .catch(error => {
+        console.error(`Error al eliminar catálogo ${catalogId}:`, error);
+        throw new Error(getReadableErrorMessage(error));
+      });
+  },
+  
+  // Actualizar un producto de un catálogo
+  updateCatalogProduct(catalogId: number, productData: { id: number, catalog_price?: number | null }) {
+    return api.put(`/floresinc/v1/catalogs/${catalogId}/products/${productData.id}`, productData);
   }
 };
 

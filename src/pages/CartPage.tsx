@@ -109,7 +109,7 @@ const CartPage: React.FC = () => {
                   {/* Imagen del producto */}
                   <div className="w-full sm:w-24 h-24 bg-gray-100 rounded-md overflow-hidden mb-4 sm:mb-0">
                     <img
-                      src={item.product.images[0]?.src || '/placeholder.png'}
+                      src={item.product.images[0]?.src || '/wp-content/themes/FloresInc/assets/img/no-image.svg'}
                       alt={item.product.name}
                       className="w-full h-full object-cover"
                     />

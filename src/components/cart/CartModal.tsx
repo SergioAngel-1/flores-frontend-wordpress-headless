@@ -74,7 +74,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                   {/* Imagen del producto */}
                   <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
                     <img
-                      src={item.product.images[0]?.src || '/placeholder.png'}
+                      src={item.product.images[0]?.src || '/wp-content/themes/FloresInc/assets/img/no-image.svg'}
                       alt={item.product.name}
                       className="h-full w-full object-cover object-center"
                     />

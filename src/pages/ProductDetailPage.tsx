@@ -178,9 +178,10 @@ const ProductDetailPage = () => {
             {/* Imagen principal */}
             <div className="order-1 md:order-2 flex-grow bg-white rounded-lg overflow-hidden shadow-md h-full flex items-center justify-center">
               <img 
-                src={product.images && product.images.length > 0 
+                src={
+                  product.images && product.images.length > 0 
                   ? product.images[activeImage].src 
-                  : 'https://via.placeholder.com/600x600?text=No+Image'
+                  : '/wp-content/themes/FloresInc/assets/img/no-image.svg'
                 } 
                 alt={product.name} 
                 className="w-full h-auto object-contain max-h-[600px]"

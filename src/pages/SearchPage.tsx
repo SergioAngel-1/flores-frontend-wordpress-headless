@@ -23,7 +23,7 @@ const ProductCard = ({ product }: { product: Product }) => {
       <Link to={`/producto/${product.slug}`} className="block">
         <div className="h-48 bg-gray-200 overflow-hidden">
           <img 
-            src={product.images && product.images.length > 0 ? product.images[0].src : 'https://via.placeholder.com/300x300'} 
+            src={product.images && product.images.length > 0 ? product.images[0].src : '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
             alt={product.name} 
             className="w-full h-full object-cover"
           />

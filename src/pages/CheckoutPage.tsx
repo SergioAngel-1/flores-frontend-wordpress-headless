@@ -840,10 +840,9 @@ const CheckoutPage = () => {
                 <div key={item.product.id} className="flex items-center py-3 border-b border-gray-200 last:border-0">
                   <div className="h-16 w-16 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
                     <img 
-                      src={item.product.images && item.product.images.length > 0 
+                      src={(item.product.images && item.product.images.length > 0) 
                         ? item.product.images[0].src 
-                        : 'https://via.placeholder.com/150x150?text=No+Image'
-                      } 
+                        : '/wp-content/themes/FloresInc/assets/img/no-image.svg'}
                       alt={item.product.name} 
                       className="h-full w-full object-cover"
                     />

@@ -12,7 +12,8 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsConditionsPage from './pages/TermsConditionsPage'
 import ContactPage from './pages/ContactPage'
 import ReferidosPage from './pages/ReferidosPage'
-import CatalogosPage from './pages/CatalogosPage'
+import CatalogPage from './pages/CatalogPage'
+import CatalogDetailPage from './pages/CatalogDetailPage'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { CartProvider } from './contexts/CartContext'
 import AuthModals from './components/auth/AuthModals'
@@ -53,7 +54,8 @@ const AuthenticatedRoutes = () => {
         <Route path="/privacidad" element={<PrivacyPolicyPage />} />
         <Route path="/terminos" element={<TermsConditionsPage />} />
         <Route path="/contacto" element={<ContactPage />} />
-        <Route path="/catalogos" element={<CatalogosPage />} />
+        <Route path="/catalogos" element={<CatalogPage />} />
+        <Route path="/catalogos/:slug" element={<CatalogDetailPage />} />
         <Route path="/login" element={<Navigate to="/" />} />
         <Route path="*" element={
           <div className="container mx-auto px-4 py-20 text-center">
@@ -74,6 +76,8 @@ const UnauthenticatedRoutes = () => {
       <Route path="/privacidad" element={<PrivacyPolicyPage />} />
       <Route path="/terminos" element={<TermsConditionsPage />} />
       <Route path="/contacto" element={<ContactPage />} />
+      <Route path="/catalogos" element={<CatalogPage />} />
+      <Route path="/catalogos/:slug" element={<CatalogDetailPage />} />
       <Route path="*" element={<PreserveQueryParamsRoute />} />
     </Routes>
   );

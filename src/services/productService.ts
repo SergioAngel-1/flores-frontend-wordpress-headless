@@ -17,7 +17,22 @@ export interface ProductFilters {
 const productService = {
   getAll: (params: ProductFilters = {}) => wooCommerceApi.get<Product[]>('/products', { params }),
   
-  getById: (id: number, params = {}) => wooCommerceApi.get<Product>(`/products/${id}`, { params }),
+  getById: (id: number, params = {}) => {
+    // Si el ID es 0 o negativo, es un producto personalizado y no debemos consultar la API
+    if (id <= 0) {
+      return Promise.reject({
+        response: {
+          status: 404,
+          data: {
+            code: 'custom_product',
+            message: 'Este es un producto personalizado y no existe en WooCommerce'
+          }
+        }
+      });
+    }
+    
+    return wooCommerceApi.get<Product>(`/products/${id}`, { params });
+  },
   
   getByCategory: (categoryId: number, params = {}) => 
     wooCommerceApi.get<Product[]>('/products', { 

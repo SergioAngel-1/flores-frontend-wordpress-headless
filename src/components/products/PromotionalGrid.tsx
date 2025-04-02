@@ -233,7 +233,7 @@ const PromotionalGrid: React.FC<{ categoryId?: number }> = ({ categoryId }) => {
               {/* Imagen pequeña */}
               <div className="w-8 h-8 flex-shrink-0 bg-white rounded-full flex items-center justify-center overflow-hidden">
                 <img
-                  src={(product.images && product.images.length > 0) ? product.images[0].src : '/placeholder.png'}
+                  src={(product.images && product.images.length > 0) ? product.images[0].src : '/wp-content/themes/FloresInc/assets/img/no-image.svg'}
                   alt={product.name}
                   className="w-6 h-6 object-contain"
                 />

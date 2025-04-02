@@ -53,7 +53,7 @@ const OrdersSection = () => {
             name: item.name,
             price: parseFloat(item.price),
             quantity: item.quantity,
-            image: item.image?.src || 'https://via.placeholder.com/150',
+            image: item.image?.src || '/wp-content/themes/FloresInc/assets/img/no-image.svg',
             product_id: item.product_id
           }))
         }));
@@ -284,7 +284,7 @@ const OrdersSection = () => {
                             alt={item.name}
                             className="h-full w-full object-cover"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150';
+                              (e.target as HTMLImageElement).src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
                             }}
                           />
                         </div>
