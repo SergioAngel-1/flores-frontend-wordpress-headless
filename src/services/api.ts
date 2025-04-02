@@ -4,19 +4,35 @@ import { api, wooCommerceApi, baseApiUrl } from './apiConfig';
 console.log(`API configurada con URL base: ${baseApiUrl}`);
 
 // Interfaces y tipos
-interface User {
+export interface Address {
+  id: number | string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  isDefault?: boolean;
+}
+
+export interface User {
   id: number;
-  username: string;
+  username?: string;
+  name?: string;
   email: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   displayName?: string;
-  pending?: boolean;
+  avatar?: string;
   phone?: string;
   documentId?: string;
+  pending?: boolean;
   birthDate?: string;
   gender?: string;
   newsletter?: boolean;
+  addresses?: Address[];
+  defaultAddress?: Address | null;
 }
 
 // Función para extraer mensajes de error legibles
@@ -145,6 +161,43 @@ const authService = {
     return localStorage.getItem('authToken') !== null;
   },
   
+  // Verificar la validez del token y refrescar datos del usuario si es necesario
+  async verifyToken(): Promise<boolean> {
+    const token = localStorage.getItem('authToken');
+    
+    if (!token) {
+      console.log('No hay token para verificar');
+      return false;
+    }
+    
+    try {
+      // Asegurar que el token está configurado en los headers
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Intentar obtener datos básicos del usuario para verificar el token
+      const response = await api.get('/wp/v2/users/me');
+      
+      if (response.data && response.data.id) {
+        console.log('Token verificado correctamente');
+        return true;
+      } else {
+        console.warn('Respuesta de verificación de token sin ID de usuario');
+        return false;
+      }
+    } catch (error: any) {
+      console.error('Error al verificar token:', error);
+      
+      // Si el error es de autenticación, eliminar el token
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        console.log('Token inválido, eliminando...');
+        localStorage.removeItem('authToken');
+        delete api.defaults.headers.common['Authorization'];
+      }
+      
+      return false;
+    }
+  },
+  
   // Obtener el usuario actual
   getCurrentUser(): Promise<User> {
     console.log('Obteniendo usuario actual...');
@@ -167,6 +220,13 @@ const authService = {
           const wpUser = response.data;
           console.log('Datos de usuario obtenidos:', wpUser.id);
           
+          // Verificar si tenemos direcciones en la respuesta
+          const addresses = wpUser.addresses || [];
+          const defaultAddress = wpUser.defaultAddress || null;
+          
+          console.log('Direcciones obtenidas:', addresses.length);
+          console.log('Dirección predeterminada:', defaultAddress ? 'Sí' : 'No');
+          
           // Usuario básico con la información disponible
           const basicUser: User = {
             id: wpUser.id,
@@ -175,32 +235,91 @@ const authService = {
             firstName: wpUser.first_name || '',
             lastName: wpUser.last_name || '',
             displayName: wpUser.name,
-            pending: false
+            pending: false,
+            addresses: addresses,
+            defaultAddress: defaultAddress
           };
           
           // Intentar obtener meta datos adicionales del usuario
-          api.get(`/floresinc/v1/user/${wpUser.id}/profile`)
+          // Corregido: Usar el endpoint correcto que está disponible en el backend
+          api.get('/floresinc/v1/user/profile')
             .then(profileResponse => {
               const profileData = profileResponse.data;
               console.log('Perfil de usuario obtenido');
               
-              // Completar el usuario con los datos del perfil
-              const fullUser: User = {
-                ...basicUser,
-                phone: profileData.phone || '',
-                documentId: profileData.document_id || '',
-                birthDate: profileData.birth_date || '',
-                gender: profileData.gender || '',
-                newsletter: profileData.newsletter === '1',
-                pending: profileData.pending === '1'
-              };
+              // Si no tenemos direcciones en la respuesta básica, intentar obtenerlas explícitamente
+              let addressesPromise = Promise.resolve({ data: addresses });
+              if (!addresses || addresses.length === 0) {
+                console.log('Obteniendo direcciones explícitamente...');
+                addressesPromise = api.get('/floresinc/v1/user/addresses');
+              }
               
-              resolve(fullUser);
+              addressesPromise
+                .then(addressesResponse => {
+                  const userAddresses = addressesResponse.data || [];
+                  
+                  // Determinar la dirección predeterminada
+                  let userDefaultAddress = defaultAddress;
+                  if (!userDefaultAddress && userAddresses.length > 0) {
+                    userDefaultAddress = userAddresses.find((addr: Address) => addr.isDefault) || userAddresses[0];
+                  }
+                  
+                  // Completar el usuario con los datos del perfil y direcciones
+                  const fullUser: User = {
+                    ...basicUser,
+                    phone: profileData.phone || '',
+                    documentId: profileData.documentId || profileData.document_id || '',
+                    birthDate: profileData.birthDate || '',
+                    gender: profileData.gender || '',
+                    newsletter: profileData.newsletter === '1' || profileData.newsletter === true,
+                    pending: profileData.pending === '1' || profileData.pending === true,
+                    addresses: userAddresses,
+                    defaultAddress: userDefaultAddress
+                  };
+                  
+                  resolve(fullUser);
+                })
+                .catch(addressesError => {
+                  console.warn('Error al obtener direcciones:', addressesError);
+                  // Si falla al obtener direcciones, usar los datos que ya tenemos
+                  const fullUser: User = {
+                    ...basicUser,
+                    phone: profileData.phone || '',
+                    documentId: profileData.documentId || profileData.document_id || '',
+                    birthDate: profileData.birthDate || '',
+                    gender: profileData.gender || '',
+                    newsletter: profileData.newsletter === '1' || profileData.newsletter === true,
+                    pending: profileData.pending === '1' || profileData.pending === true
+                  };
+                  
+                  resolve(fullUser);
+                });
             })
             .catch(profileError => {
               console.warn('Error al obtener perfil, usando datos básicos:', profileError);
-              // Si falla al obtener el perfil, devolver datos básicos
-              resolve(basicUser);
+              
+              // Si falla al obtener el perfil, intentar obtener al menos las direcciones
+              api.get('/floresinc/v1/user/addresses')
+                .then(addressesResponse => {
+                  const userAddresses = addressesResponse.data || [];
+                  
+                  // Determinar la dirección predeterminada
+                  let userDefaultAddress = defaultAddress;
+                  if (!userDefaultAddress && userAddresses.length > 0) {
+                    userDefaultAddress = userAddresses.find((addr: Address) => addr.isDefault) || userAddresses[0];
+                  }
+                  
+                  // Actualizar el usuario con las direcciones
+                  basicUser.addresses = userAddresses;
+                  basicUser.defaultAddress = userDefaultAddress;
+                  
+                  resolve(basicUser);
+                })
+                .catch(addressesError => {
+                  console.warn('Error al obtener direcciones:', addressesError);
+                  // Si falla todo, devolver datos básicos
+                  resolve(basicUser);
+                });
             });
         })
         .catch(error => {

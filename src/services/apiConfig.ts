@@ -162,10 +162,102 @@ export const api = axios.create({
 api.interceptors.request.use(
   config => {
     logger.debug('API', `Petición ${config.method?.toUpperCase()} a ${config.url}`);
+    
+    // Asegurar que el token de autenticación esté presente en todas las solicitudes si existe
+    const token = localStorage.getItem('authToken');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+      logger.debug('API', 'Token de autenticación añadido a la petición');
+    }
+    
     return config;
   },
   error => {
     logger.error('API', 'Error en la configuración de la petición', error);
+    return Promise.reject(error);
+  }
+);
+
+// Interceptor de respuesta para manejo de errores global
+api.interceptors.response.use(
+  response => response,
+  async error => {
+    if (error.response) {
+      // Respuesta del servidor con error
+      logger.error('API', `Error ${error.response.status}:`, error.response.data);
+      
+      // Si es un error de autenticación (401) o autorización (403)
+      if ((error.response.status === 401 || error.response.status === 403) && 
+          error.config && 
+          !error.config.__isRetryRequest) {
+        
+        // Verificar si tenemos un token en localStorage
+        const token = localStorage.getItem('authToken');
+        
+        if (token) {
+          logger.warn('API', 'Error de autenticación. Intentando renovar token...');
+          
+          // Marcar esta solicitud como reintento para evitar bucles infinitos
+          error.config.__isRetryRequest = true;
+          
+          try {
+            // Intentar obtener un nuevo token o validar el existente
+            // Esto dependerá de la implementación específica del backend
+            // Por ahora, simplemente reintentamos la solicitud con el token actual
+            
+            // Asegurar que el token esté en los headers
+            error.config.headers.Authorization = `Bearer ${token}`;
+            
+            // Reintentar la solicitud original
+            logger.info('API', 'Reintentando solicitud con token actualizado');
+            return api(error.config);
+          } catch (retryError) {
+            logger.error('API', 'Error al reintentar solicitud:', retryError);
+            // Si el reintento falla, eliminar el token
+            localStorage.removeItem('authToken');
+          }
+        }
+      }
+      
+      // Mostrar alerta solo si es un error 500 y no se ha mostrado recientemente
+      if (error.response.status >= 500 && error.response.status < 600) {
+        const currentTime = Date.now();
+        
+        if (!serverErrorShown || (currentTime - lastErrorTime > ERROR_COOLDOWN)) {
+          serverErrorShown = true;
+          lastErrorTime = currentTime;
+          
+          showServerErrorAlert();
+          
+          // Resetear el flag después del cooldown
+          setTimeout(() => {
+            serverErrorShown = false;
+          }, ERROR_COOLDOWN);
+        }
+      }
+    } else if (error.request) {
+      // Solicitud realizada pero sin respuesta
+      logger.error('API', 'Error de conexión:', error.message);
+      
+      // Mostrar alerta solo si no se ha mostrado recientemente
+      const currentTime = Date.now();
+      
+      if (!serverErrorShown || (currentTime - lastErrorTime > ERROR_COOLDOWN)) {
+        serverErrorShown = true;
+        lastErrorTime = currentTime;
+        
+        showServerErrorAlert();
+        
+        // Resetear el flag después del cooldown
+        setTimeout(() => {
+          serverErrorShown = false;
+        }, ERROR_COOLDOWN);
+      }
+    } else {
+      // Error al configurar la solicitud
+      logger.error('API', 'Error al configurar la solicitud:', error.message);
+    }
+    
     return Promise.reject(error);
   }
 );
