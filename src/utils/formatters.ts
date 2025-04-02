@@ -141,3 +141,84 @@ export const getValidImageUrl = (url: string | null | undefined): string | null 
     return null;
   }
 };
+
+/**
+ * Procesa una URL de imagen secundaria que puede venir con comillas o como parte de un array serializado
+ * @param imageUrl URL de la imagen que puede contener comillas o ser parte de un array
+ * @returns URL limpia y válida o imagen por defecto
+ */
+export const processSecondaryImage = (imageUrl: string | undefined | null | boolean): string => {
+  // Si la imagen es false, undefined o null, devolver imagen por defecto
+  if (imageUrl === false || imageUrl === undefined || imageUrl === null) {
+    logger.debug('formatters', 'processSecondaryImage: URL es false, undefined o null');
+    return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+  }
+  
+  // Si la imagen es 'false' (string), devolver imagen por defecto
+  if (imageUrl === 'false') {
+    logger.debug('formatters', 'processSecondaryImage: URL es string "false"');
+    return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+  }
+  
+  try {
+    // En este punto, imageUrl debe ser un string
+    const strImageUrl = String(imageUrl);
+    logger.debug('formatters', `processSecondaryImage: Procesando imagen original: ${strImageUrl}`);
+    
+    // Eliminar comillas si están presentes
+    let cleanUrl = strImageUrl.replace(/^["']|["']$/g, '');
+    
+    // Si la URL parece ser un array JSON, intentar extraer la URL
+    if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
+      try {
+        logger.debug('formatters', `processSecondaryImage: Detectado posible array JSON: ${cleanUrl}`);
+        
+        // Sustituir barras invertidas dobles por simples para JSON.parse
+        const normalizedUrl = cleanUrl.replace(/\\\\/g, '\\');
+        logger.debug('formatters', `processSecondaryImage: URL normalizada para JSON.parse: ${normalizedUrl}`);
+        
+        const parsed = JSON.parse(normalizedUrl);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cleanUrl = parsed[0];
+          logger.debug('formatters', `processSecondaryImage: URL extraída del array: ${cleanUrl}`);
+        }
+      } catch (e) {
+        logger.error('formatters', `processSecondaryImage: Error al parsear URL como JSON:`, e);
+      }
+    }
+    
+    // Reemplazar barras invertidas por barras normales
+    cleanUrl = cleanUrl.replace(/\\\\/g, '/').replace(/\\/g, '/');
+    logger.debug('formatters', `processSecondaryImage: URL limpia después de reemplazar barras: ${cleanUrl}`);
+    
+    // Obtener una URL válida o usar la imagen por defecto
+    const validUrl = getValidImageUrl(cleanUrl);
+    logger.debug('formatters', `processSecondaryImage: URL válida final: ${validUrl || 'null'}`);
+    
+    return validUrl || '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+  } catch (error) {
+    logger.error('formatters', `processSecondaryImage: Error al procesar imagen secundaria:`, error);
+    return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+  }
+};
+
+/**
+ * Limpia una URL de imagen para guardarla en la base de datos
+ * @param imageUrl URL de la imagen a limpiar
+ * @returns URL limpia sin comillas ni caracteres especiales
+ */
+export const cleanImageUrlForStorage = (imageUrl: string | undefined | null | boolean): string => {
+  // Si la imagen es false, undefined o null, devolver string vacío
+  if (imageUrl === false || imageUrl === undefined || imageUrl === null || imageUrl === 'false') {
+    logger.debug('formatters', 'cleanImageUrlForStorage: URL es false, undefined, null o "false"');
+    return '';
+  }
+  
+  logger.debug('formatters', `cleanImageUrlForStorage: Limpiando URL original: ${String(imageUrl)}`);
+  
+  // Eliminar comillas y espacios en blanco
+  const cleanUrl = String(imageUrl).replace(/^["'\s]+|["'\s]+$/g, '').trim();
+  
+  logger.debug('formatters', `cleanImageUrlForStorage: URL limpia: ${cleanUrl}`);
+  return cleanUrl;
+};

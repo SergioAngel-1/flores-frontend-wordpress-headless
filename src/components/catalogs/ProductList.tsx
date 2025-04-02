@@ -4,6 +4,7 @@ import ProductEditModal from './ProductEditModal';
 import alertService from '../../services/alertService';
 import { formatCurrency, getValidImageUrl } from '../../utils/formatters';
 import { Product } from '../../types/woocommerce'; // Importar el tipo Product
+import logger from '../../utils/logger'; // Importar el sistema de logs
 
 interface ProductListProps {
   products: CatalogProduct[];
@@ -16,16 +17,85 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
   const [internalViewType, setInternalViewType] = useState<'grid' | 'list'>(externalViewType || 'grid');
   const [isProductEditModalOpen, setIsProductEditModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
-
+  
   // Actualizar el viewType interno cuando cambie el externo
   useEffect(() => {
     if (externalViewType) {
       setInternalViewType(externalViewType);
     }
   }, [externalViewType]);
-
+  
   // Usar el viewType externo si está proporcionado, de lo contrario usar el interno
   const viewType = externalViewType || internalViewType;
+
+  // Función para extraer la URL de una imagen secundaria
+  const getSecondaryImageUrl = (product: CatalogProduct, index: number): string => {
+    try {
+      // Verificar si hay imágenes secundarias
+      if (!product.catalog_images || product.catalog_images.length === 0) {
+        logger.debug('ProductList', 'No hay imágenes secundarias para el producto', product.id);
+        return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+      }
+      
+      // Obtener la imagen en el índice especificado
+      const rawImageUrl = product.catalog_images[index];
+      
+      // Verificar si la imagen es undefined, null, false o el string 'false'
+      if (rawImageUrl === undefined || rawImageUrl === null || 
+          // @ts-ignore - Ignorar el error de tipo ya que sabemos que puede ser un booleano
+          rawImageUrl === false || rawImageUrl === 'false') {
+        logger.warn('ProductList', `Imagen secundaria ${index} no es válida para el producto ${product.id}:`, rawImageUrl);
+        return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+      }
+      
+      logger.info('ProductList', `Imagen secundaria ${index} original:`, rawImageUrl);
+      
+      // Si la imagen parece ser una URL entre comillas, extraerla
+      let cleanUrl = rawImageUrl as string;
+      
+      // Manejar el caso en que catalog_images sea un string con formato de array
+      if (typeof cleanUrl === 'string') {
+        // 1. Eliminar comillas
+        cleanUrl = cleanUrl.replace(/^["']|["']$/g, '');
+        
+        // 2. Si parece ser un array JSON, intentar extraer la URL
+        if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
+          try {
+            // Normalizar barras invertidas para JSON.parse
+            const normalizedUrl = cleanUrl.replace(/\\\\/g, '\\');
+            logger.debug('ProductList', `Intento de parsear JSON:`, normalizedUrl);
+            
+            const parsed = JSON.parse(normalizedUrl);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              cleanUrl = parsed[0];
+              logger.info('ProductList', `URL extraída del array JSON:`, cleanUrl);
+            }
+          } catch (e) {
+            logger.error('ProductList', `Error al parsear como JSON:`, e);
+          }
+        }
+        
+        // 3. Reemplazar barras invertidas por barras normales
+        cleanUrl = cleanUrl.replace(/\\\\/g, '/').replace(/\\/g, '/');
+        logger.info('ProductList', `URL después de reemplazar barras:`, cleanUrl);
+        
+        // 4. Validar la URL
+        const validUrl = getValidImageUrl(cleanUrl);
+        if (validUrl) {
+          logger.info('ProductList', `URL válida final:`, validUrl);
+          return validUrl;
+        } else {
+          logger.warn('ProductList', `URL inválida después de procesamiento:`, cleanUrl);
+        }
+      }
+      
+      logger.warn('ProductList', `La imagen secundaria no es una URL válida:`, String(rawImageUrl));
+      return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+    } catch (error) {
+      logger.error('ProductList', `Error al procesar imagen secundaria ${index}:`, error);
+      return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+    }
+  };
 
   // Manejar la edición de un producto
   const handleEditProduct = (product: CatalogProduct) => {
@@ -201,19 +271,57 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                   </div>
                 </div>
                 
+                {/* Imágenes secundarias en formato circular */}
+                {((product.catalog_images && product.catalog_images.length > 0) || 
+                  (product.images && product.images.length > 0)) && (
+                  <div className="flex justify-center -mt-4 mb-2 space-x-2">
+                    {/* Primera imagen secundaria */}
+                    {((product.catalog_images && product.catalog_images[0]) || 
+                      (product.images && product.images[0])) && (
+                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                        <img 
+                          src={getSecondaryImageUrl(product, 0)} 
+                          alt={`${product.name} - imagen secundaria 1`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Segunda imagen secundaria */}
+                    {((product.catalog_images && product.catalog_images[1]) || 
+                      (product.images && product.images[1])) && (
+                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                        <img 
+                          src={getSecondaryImageUrl(product, 1)} 
+                          alt={`${product.name} - imagen secundaria 2`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 {/* Nombre del producto */}
-                <div className="p-3 bg-gray-50 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                <div className="p-3 bg-secundario/20 border-b border-secundario">
+                  <h3 className="text-lg font-semibold text-primario line-clamp-2">
                     {product.name}
                     {isCustomProduct(product) && (
-                      <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario/10 text-primario">
                         Exclusivo de catálogo
                       </span>
                     )}
                   </h3>
                   
                   {(product.catalog_sku || product.sku) && (
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-texto/70 mt-1">
                       SKU: {product.catalog_sku || product.sku}
                     </p>
                   )}
@@ -262,39 +370,30 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                 {/* Descripción corta */}
                 {(product.catalog_short_description || product.short_description) && (
                   <div 
-                    className="text-sm text-gray-600 line-clamp-3"
+                    className="text-sm text-gray-600 mb-3"
                     dangerouslySetInnerHTML={{ __html: product.catalog_short_description || product.short_description || '' }}
                   />
                 )}
                 
-                {/* Si no hay descripción corta pero hay descripción larga, mostrar un extracto */}
-                {!(product.catalog_short_description || product.short_description) && 
-                 (product.catalog_description || product.description) && (
+                {/* Descripción larga */}
+                {(product.catalog_description || product.description) && (
                   <div 
-                    className="text-sm text-gray-600 line-clamp-3"
+                    className="text-sm text-gray-700 mt-3 border-t border-gray-100 pt-3"
                     dangerouslySetInnerHTML={{ __html: product.catalog_description || product.description || '' }}
                   />
                 )}
               </div>
               
               {/* FOOTER: CTA promocional */}
-              <div className="product-footer p-3 bg-yellow-50 border-t border-yellow-100">
-                <span className="text-sm font-medium text-yellow-800 flex items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 mr-1"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  ¡Lleva 4 y te regalamos el otro!
+              <div className="product-footer p-3 bg-secundario/20 border-t border-secundario">
+                <span className="text-sm font-medium text-texto flex flex-col items-center justify-center">
+                  <div className="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-primario" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                    </svg>
+                    <span className="text-primario font-semibold">¡Oferta especial!</span>
+                  </div>
+                  <span>Lleva 4g y te regalamos 1g</span>
                 </span>
               </div>
             </div>
@@ -307,13 +406,13 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
               key={product.id} 
               className={`product-item bg-white border border-gray-200 rounded-lg shadow overflow-hidden hover:shadow-md transition-shadow`}
             >
-              <div className="md:flex">
+              <div className="md:flex h-full">
                 {/* HEADER: Imagen y nombre del producto (en vista móvil) */}
-                <div className="md:hidden p-3 bg-gray-50 border-b border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                <div className="md:hidden p-3 bg-secundario/20 border-b border-secundario">
+                  <h3 className="text-lg font-semibold text-primario line-clamp-2">
                     {product.name}
                     {isCustomProduct(product) && (
-                      <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario/10 text-primario">
                         Exclusivo de catálogo
                       </span>
                     )}
@@ -321,8 +420,8 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                 </div>
 
                 {/* Imagen del producto */}
-                <div className="md:w-1/4 lg:w-1/5 md:max-w-[200px]">
-                  <div className="aspect-w-1 aspect-h-1 w-full">
+                <div className="md:w-1/4 lg:w-1/5 md:max-w-[200px] flex-shrink-0 relative">
+                  <div className="h-full md:h-[full]">
                     <img 
                       src={getValidImageUrl(product.catalog_image) || getValidImageUrl(product.image) || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
                       alt={product.name} 
@@ -332,23 +431,61 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                         target.src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
                       }}
                     />
+                    
+                    {/* Imágenes secundarias en formato circular */}
+                    {((product.catalog_images && product.catalog_images.length > 0) || 
+                      (product.images && product.images.length > 0)) && (
+                      <div className="absolute top-2 -right-4 flex flex-col space-y-2">
+                        {/* Primera imagen secundaria */}
+                        {((product.catalog_images && product.catalog_images[0]) || 
+                          (product.images && product.images[0])) && (
+                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                            <img 
+                              src={getSecondaryImageUrl(product, 0)} 
+                              alt={`${product.name} - imagen secundaria 1`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Segunda imagen secundaria */}
+                        {((product.catalog_images && product.catalog_images[1]) || 
+                          (product.images && product.images[1])) && (
+                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                            <img 
+                              src={getSecondaryImageUrl(product, 1)} 
+                              alt={`${product.name} - imagen secundaria 2`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="md:w-3/4 md:flex-1 overflow-hidden flex flex-col">
                   {/* HEADER: Nombre del producto (en desktop) */}
-                  <div className="hidden md:block p-3 bg-gray-50 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
+                  <div className="hidden md:block p-3 bg-secundario/20 border-b border-secundario">
+                    <h3 className="text-lg font-semibold text-primario line-clamp-2">
                       {product.name}
                       {isCustomProduct(product) && (
-                        <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario/10 text-primario">
                           Exclusivo de catálogo
                         </span>
                       )}
                     </h3>
                     
                     {(product.catalog_sku || product.sku) && (
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-primario mt-1">
                         SKU: {product.catalog_sku || product.sku}
                       </p>
                     )}
@@ -397,15 +534,26 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                         dangerouslySetInnerHTML={{ __html: product.catalog_description || product.description || '' }}
                       />
                     )}
+                    
+                    {/* Descripción larga */}
+                    {(product.catalog_description || product.description) && (
+                      <div 
+                        className="text-sm text-gray-700 mt-3 border-t border-gray-100 pt-3"
+                        dangerouslySetInnerHTML={{ __html: product.catalog_description || product.description || '' }}
+                      />
+                    )}
                   </div>
                   
                   {/* FOOTER: CTA promocional */}
-                  <div className="p-3 bg-yellow-50 border-t border-yellow-100 mt-auto">
-                    <span className="text-sm font-medium text-yellow-800 flex items-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      ¡Lleva 4 y te regalamos el otro!
+                  <div className="p-3 bg-secundario/20 border-t border-secundario mt-auto">
+                    <span className="text-sm font-medium text-texto flex flex-col items-center">
+                      <div className="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-primario" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                        <span className="text-primario font-semibold">¡Oferta especial!</span>
+                      </div>
+                      <span>Lleva 4g y te regalamos 1g</span>
                     </span>
                   </div>
                 </div>

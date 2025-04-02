@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { CatalogProductInput } from '../../types/catalog';
 import AnimatedModal from '../ui/AnimatedModal';
 import alertService from '../../services/alertService';
+import logger from '../../utils/logger'; // Importar el logger
 import { Product } from '../../types/woocommerce';
-import { formatCurrency } from '../../utils/formatters';
+import { formatCurrency, processSecondaryImage, cleanImageUrlForStorage } from '../../utils/formatters';
 
 interface ProductEditModalProps {
   isOpen?: boolean;
@@ -59,16 +60,32 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
       const catalogImages = product.catalog_images || [];
       setMainImage(product.catalog_image || (product.images && product.images.length > 0 ? product.images[0].src : ''));
       
-      // Asegurarse de que las imágenes secundarias no sean undefined o null
-      if (catalogImages.length > 0) {
-        setSecondaryImage1(catalogImages[0] || '');
-      } else {
+      // Procesar imágenes secundarias
+      try {
+        // Si catalogImages es un string (posiblemente un array serializado), intentar parsearlo
+        if (catalogImages.length > 0) {
+          logger.info('ProductEditModal', `Procesando imágenes secundarias para producto ${product.id}. Total: ${catalogImages.length}`);
+          logger.debug('ProductEditModal', `Imágenes secundarias originales:`, catalogImages);
+          
+          const firstImage = typeof catalogImages[0] === 'string' ? cleanImageUrlForStorage(catalogImages[0]) : '';
+          logger.info('ProductEditModal', `Primera imagen secundaria limpia: ${firstImage}`);
+          setSecondaryImage1(firstImage);
+          
+          if (catalogImages.length > 1) {
+            const secondImage = typeof catalogImages[1] === 'string' ? cleanImageUrlForStorage(catalogImages[1]) : '';
+            logger.info('ProductEditModal', `Segunda imagen secundaria limpia: ${secondImage}`);
+            setSecondaryImage2(secondImage);
+          } else {
+            setSecondaryImage2('');
+          }
+        } else {
+          logger.debug('ProductEditModal', `No hay imágenes secundarias para producto ${product.id}`);
+          setSecondaryImage1('');
+          setSecondaryImage2('');
+        }
+      } catch (error) {
+        logger.error('ProductEditModal', `Error al procesar imágenes secundarias:`, error);
         setSecondaryImage1('');
-      }
-      
-      if (catalogImages.length > 1) {
-        setSecondaryImage2(catalogImages[1] || '');
-      } else {
         setSecondaryImage2('');
       }
     }
@@ -96,7 +113,10 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
         catalog_short_description: shortDescription,
         catalog_description: description,
         catalog_image: mainImage,
-        catalog_images: [secondaryImage1, secondaryImage2].filter(img => img.trim() !== ''),
+        catalog_images: [
+          cleanImageUrlForStorage(secondaryImage1),
+          cleanImageUrlForStorage(secondaryImage2)
+        ].filter(img => img.trim() !== ''),
         is_custom: product.is_custom || false // Mantener el valor existente o establecer como false por defecto
       };
       
@@ -219,7 +239,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
               <div className="relative h-24 w-24 mx-auto mb-2 border border-gray-300 rounded-md overflow-hidden">
                 <img
                   className="h-full w-full object-cover"
-                  src={secondaryImage1 || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
+                  src={processSecondaryImage(secondaryImage1) || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
                   alt="Imagen secundaria 1"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
@@ -230,7 +250,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
                 type="text"
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primario focus:border-primario sm:text-sm"
                 placeholder="URL de imagen secundaria 1"
-                value={secondaryImage1 || ''}
+                value={cleanImageUrlForStorage(secondaryImage1) || ''}
                 onChange={(e) => setSecondaryImage1(e.target.value)}
               />
             </div>
@@ -243,7 +263,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
               <div className="relative h-24 w-24 mx-auto mb-2 border border-gray-300 rounded-md overflow-hidden">
                 <img
                   className="h-full w-full object-cover"
-                  src={secondaryImage2 || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
+                  src={processSecondaryImage(secondaryImage2) || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
                   alt="Imagen secundaria 2"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
@@ -254,7 +274,7 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
                 type="text"
                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primario focus:border-primario sm:text-sm"
                 placeholder="URL de imagen secundaria 2"
-                value={secondaryImage2 || ''}
+                value={cleanImageUrlForStorage(secondaryImage2) || ''}
                 onChange={(e) => setSecondaryImage2(e.target.value)}
               />
             </div>
