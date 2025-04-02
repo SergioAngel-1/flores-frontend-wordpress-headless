@@ -119,25 +119,49 @@ export const getValidImageUrl = (url: string | null | undefined): string | null 
   if (!url) return null;
   
   try {
-    // Si la URL ya está bien formada, devolverla tal cual
-    if (url.match(/^https?:\/\//i)) {
-      return url;
+    // Limpiamos cualquier carácter escapado en la URL
+    let cleanUrl = url.replace(/\\\//g, '/');
+    
+    // Eliminar comillas al principio y al final si existen
+    cleanUrl = cleanUrl.replace(/^["']|["']$/g, '');
+    
+    // Eliminar espacios en blanco
+    cleanUrl = cleanUrl.trim();
+    
+    // Registrar para debugging
+    logger.debug('formatters', `getValidImageUrl: URL original: ${url}, URL limpia: ${cleanUrl}`);
+    
+    // Si es 'false' (como string), retornar null
+    if (cleanUrl === 'false') {
+      return null;
+    }
+    
+    // Si la URL ya está bien formada con http o https, devolverla tal cual
+    if (cleanUrl.match(/^https?:\/\//i)) {
+      return cleanUrl;
+    }
+    
+    // Manejar URLs con dominio local pero sin protocolo (flores.local)
+    if (cleanUrl.match(/^[\w.-]+\.local\//i)) {
+      return `http://${cleanUrl}`;
     }
     
     // Si es una URL relativa, convertirla a absoluta usando el origen actual
-    if (url.startsWith('/')) {
+    if (cleanUrl.startsWith('/')) {
       const baseUrl = window.location.origin;
-      return `${baseUrl}${url}`;
+      return `${baseUrl}${cleanUrl}`;
     }
     
     // Si parece ser una ruta sin protocolo, añadir http://
-    if (url.includes('.') && !url.startsWith('http')) {
-      return `http://${url}`;
+    if (cleanUrl.includes('.') && !cleanUrl.startsWith('http')) {
+      return `http://${cleanUrl}`;
     }
     
-    return url;
+    // En caso de duda, devolver la URL limpia
+    return cleanUrl;
   } catch (error) {
-    console.error('Error al formatear URL de imagen:', error, url);
+    // Corregir el error de lint pasando el mensaje correcto
+    logger.error('formatters', `Error al formatear URL de imagen: ${String(error)}. URL: ${url}`);
     return null;
   }
 };
@@ -165,37 +189,15 @@ export const processSecondaryImage = (imageUrl: string | undefined | null | bool
     const strImageUrl = String(imageUrl);
     logger.debug('formatters', `processSecondaryImage: Procesando imagen original: ${strImageUrl}`);
     
-    // Eliminar comillas si están presentes
-    let cleanUrl = strImageUrl.replace(/^["']|["']$/g, '');
-    
-    // Si la URL parece ser un array JSON, intentar extraer la URL
-    if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
-      try {
-        logger.debug('formatters', `processSecondaryImage: Detectado posible array JSON: ${cleanUrl}`);
-        
-        // Sustituir barras invertidas dobles por simples para JSON.parse
-        const normalizedUrl = cleanUrl.replace(/\\\\/g, '\\');
-        logger.debug('formatters', `processSecondaryImage: URL normalizada para JSON.parse: ${normalizedUrl}`);
-        
-        const parsed = JSON.parse(normalizedUrl);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          cleanUrl = parsed[0];
-          logger.debug('formatters', `processSecondaryImage: URL extraída del array: ${cleanUrl}`);
-        }
-      } catch (e) {
-        logger.error('formatters', `processSecondaryImage: Error al parsear URL como JSON:`, e);
-      }
+    // Verificar si es una URL válida directamente
+    const validUrl = getValidImageUrl(strImageUrl);
+    if (validUrl) {
+      logger.debug('formatters', `processSecondaryImage: URL válida directa: ${validUrl}`);
+      return validUrl;
     }
     
-    // Reemplazar barras invertidas por barras normales
-    cleanUrl = cleanUrl.replace(/\\\\/g, '/').replace(/\\/g, '/');
-    logger.debug('formatters', `processSecondaryImage: URL limpia después de reemplazar barras: ${cleanUrl}`);
-    
     // Obtener una URL válida o usar la imagen por defecto
-    const validUrl = getValidImageUrl(cleanUrl);
-    logger.debug('formatters', `processSecondaryImage: URL válida final: ${validUrl || 'null'}`);
-    
-    return validUrl || '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+    return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
   } catch (error) {
     logger.error('formatters', `processSecondaryImage: Error al procesar imagen secundaria:`, error);
     return '/wp-content/themes/FloresInc/assets/img/no-image.svg';

@@ -28,6 +28,50 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
   // Usar el viewType externo si está proporcionado, de lo contrario usar el interno
   const viewType = externalViewType || internalViewType;
 
+  // Función para obtener la URL de la imagen principal de un producto
+  const getMainImageUrl = (product: CatalogProduct): string => {
+    try {
+      // Primero intentar con catalog_image
+      if (product.catalog_image && 
+          product.catalog_image !== 'false' && 
+          String(product.catalog_image) !== 'false') {
+        const validUrl = getValidImageUrl(String(product.catalog_image));
+        if (validUrl) {
+          return validUrl;
+        }
+      }
+      
+      // Luego intentar con la primera imagen del array catalog_images
+      if (product.catalog_images && product.catalog_images.length > 0 && 
+          product.catalog_images[0] !== 'false' && 
+          String(product.catalog_images[0]) !== 'false') {
+        const validUrl = getValidImageUrl(String(product.catalog_images[0]));
+        if (validUrl) {
+          return validUrl;
+        }
+      }
+      
+      // Finalmente intentar con la primera imagen del array images
+      if (product.images && product.images.length > 0) {
+        const img = product.images[0];
+        if (img && img.src && 
+            img.src !== 'false' && 
+            String(img.src) !== 'false') {
+          const validUrl = getValidImageUrl(String(img.src));
+          if (validUrl) {
+            return validUrl;
+          }
+        }
+      }
+      
+      // Si no hay imagen válida, devolver la imagen por defecto
+      return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+    } catch (error) {
+      logger.error('ProductList', `Error al procesar imagen principal:`, error);
+      return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
+    }
+  };
+
   // Función para extraer la URL de una imagen secundaria
   const getSecondaryImageUrl = (product: CatalogProduct, index: number): string => {
     try {
@@ -40,52 +84,39 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
       // Obtener la imagen en el índice especificado
       const rawImageUrl = product.catalog_images[index];
       
-      // Verificar si la imagen es undefined, null, false o el string 'false'
-      if (rawImageUrl === undefined || rawImageUrl === null || 
-          // @ts-ignore - Ignorar el error de tipo ya que sabemos que puede ser un booleano
-          rawImageUrl === false || rawImageUrl === 'false') {
+      // Verificar si la imagen no es válida (false, null, etc.)
+      if (
+        rawImageUrl === undefined || 
+        rawImageUrl === null || 
+        rawImageUrl === 'false' || 
+        rawImageUrl === '' || 
+        String(rawImageUrl) === 'false'
+      ) {
         logger.warn('ProductList', `Imagen secundaria ${index} no es válida para el producto ${product.id}:`, rawImageUrl);
         return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
       }
       
       logger.info('ProductList', `Imagen secundaria ${index} original:`, rawImageUrl);
       
-      // Si la imagen parece ser una URL entre comillas, extraerla
-      let cleanUrl = rawImageUrl as string;
-      
-      // Manejar el caso en que catalog_images sea un string con formato de array
-      if (typeof cleanUrl === 'string') {
-        // 1. Eliminar comillas
-        cleanUrl = cleanUrl.replace(/^["']|["']$/g, '');
-        
-        // 2. Si parece ser un array JSON, intentar extraer la URL
-        if (cleanUrl.startsWith('[') && cleanUrl.endsWith(']')) {
-          try {
-            // Normalizar barras invertidas para JSON.parse
-            const normalizedUrl = cleanUrl.replace(/\\\\/g, '\\');
-            logger.debug('ProductList', `Intento de parsear JSON:`, normalizedUrl);
-            
-            const parsed = JSON.parse(normalizedUrl);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              cleanUrl = parsed[0];
-              logger.info('ProductList', `URL extraída del array JSON:`, cleanUrl);
-            }
-          } catch (e) {
-            logger.error('ProductList', `Error al parsear como JSON:`, e);
-          }
-        }
-        
-        // 3. Reemplazar barras invertidas por barras normales
-        cleanUrl = cleanUrl.replace(/\\\\/g, '/').replace(/\\/g, '/');
-        logger.info('ProductList', `URL después de reemplazar barras:`, cleanUrl);
-        
-        // 4. Validar la URL
-        const validUrl = getValidImageUrl(cleanUrl);
+      // Tratamiento directo basado en el tipo de dato que llega
+      if (typeof rawImageUrl === 'string') {
+        // Si es un string, verificar si es una URL válida directamente
+        const validUrl = getValidImageUrl(rawImageUrl);
         if (validUrl) {
           logger.info('ProductList', `URL válida final:`, validUrl);
           return validUrl;
-        } else {
-          logger.warn('ProductList', `URL inválida después de procesamiento:`, cleanUrl);
+        }
+      } else if (rawImageUrl && typeof rawImageUrl === 'object') {
+        // Si es un objeto que podría tener una propiedad src
+        const imgObj = rawImageUrl as any;
+        if (imgObj.src && 
+            typeof imgObj.src === 'string' && 
+            imgObj.src !== 'false') {
+          const validUrl = getValidImageUrl(imgObj.src);
+          if (validUrl) {
+            logger.info('ProductList', `URL válida desde objeto:`, validUrl);
+            return validUrl;
+          }
         }
       }
       
@@ -260,7 +291,7 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                 <div className="aspect-w-1 aspect-h-1 w-full">
                   <div className="w-full h-full rounded-t-lg overflow-hidden">
                     <img 
-                      src={getValidImageUrl(product.catalog_image) || getValidImageUrl(product.image) || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
+                      src={getMainImageUrl(product)} 
                       alt={product.name} 
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -274,11 +305,11 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                 {/* Imágenes secundarias en formato circular */}
                 {((product.catalog_images && product.catalog_images.length > 0) || 
                   (product.images && product.images.length > 0)) && (
-                  <div className="flex justify-center -mt-4 mb-2 space-x-2">
+                  <div className="flex justify-center -mt-12 pb-3 space-x-4 bg-secundario/20">
                     {/* Primera imagen secundaria */}
                     {((product.catalog_images && product.catalog_images[0]) || 
                       (product.images && product.images[0])) && (
-                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                      <div className="w-24 h-24 md:w-28 md:h-28 overflow-hidden rounded-full border-2 border-white shadow-md hover:border-primario transition-all duration-200 cursor-pointer">
                         <img 
                           src={getSecondaryImageUrl(product, 0)} 
                           alt={`${product.name} - imagen secundaria 1`}
@@ -294,7 +325,7 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                     {/* Segunda imagen secundaria */}
                     {((product.catalog_images && product.catalog_images[1]) || 
                       (product.images && product.images[1])) && (
-                      <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                      <div className="w-24 h-24 md:w-28 md:h-28 overflow-hidden rounded-full border-2 border-white shadow-md hover:border-primario transition-all duration-200 cursor-pointer">
                         <img 
                           src={getSecondaryImageUrl(product, 1)} 
                           alt={`${product.name} - imagen secundaria 2`}
@@ -311,7 +342,7 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                 
                 {/* Nombre del producto */}
                 <div className="p-3 bg-secundario/20 border-b border-secundario">
-                  <h3 className="text-lg font-semibold text-primario line-clamp-2">
+                  <h3 className="text-xl font-semibold text-primario line-clamp-2 text-center">
                     {product.name}
                     {isCustomProduct(product) && (
                       <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario/10 text-primario">
@@ -423,7 +454,7 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                 <div className="md:w-1/4 lg:w-1/5 md:max-w-[200px] flex-shrink-0 relative">
                   <div className="h-full md:h-[full]">
                     <img 
-                      src={getValidImageUrl(product.catalog_image) || getValidImageUrl(product.image) || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
+                      src={getMainImageUrl(product)} 
                       alt={product.name} 
                       className="w-full h-full object-cover md:rounded-l-lg"
                       onError={(e) => {
@@ -435,11 +466,11 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                     {/* Imágenes secundarias en formato circular */}
                     {((product.catalog_images && product.catalog_images.length > 0) || 
                       (product.images && product.images.length > 0)) && (
-                      <div className="absolute top-2 -right-4 flex flex-col space-y-2">
+                      <div className="absolute top-1/2 transform -translate-y-1/2 -right-8 flex flex-col space-y-3">
                         {/* Primera imagen secundaria */}
                         {((product.catalog_images && product.catalog_images[0]) || 
                           (product.images && product.images[0])) && (
-                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                          <div className="w-24 h-24 md:w-28 md:h-28 overflow-hidden rounded-full border-2 border-white shadow-md hover:border-primario transition-all duration-200 cursor-pointer">
                             <img 
                               src={getSecondaryImageUrl(product, 0)} 
                               alt={`${product.name} - imagen secundaria 1`}
@@ -455,7 +486,7 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                         {/* Segunda imagen secundaria */}
                         {((product.catalog_images && product.catalog_images[1]) || 
                           (product.images && product.images[1])) && (
-                          <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-md">
+                          <div className="w-24 h-24 md:w-28 md:h-28 overflow-hidden rounded-full border-2 border-white shadow-md hover:border-primario transition-all duration-200 cursor-pointer">
                             <img 
                               src={getSecondaryImageUrl(product, 1)} 
                               alt={`${product.name} - imagen secundaria 2`}
@@ -474,8 +505,8 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
 
                 <div className="md:w-3/4 md:flex-1 overflow-hidden flex flex-col">
                   {/* HEADER: Nombre del producto (en desktop) */}
-                  <div className="hidden md:block p-3 bg-secundario/20 border-b border-secundario">
-                    <h3 className="text-lg font-semibold text-primario line-clamp-2">
+                  <div className="hidden md:block p-3 pl-12 bg-secundario/20 border-b border-secundario">
+                    <h3 className="text-xl font-semibold text-primario line-clamp-2">
                       {product.name}
                       {isCustomProduct(product) && (
                         <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario/10 text-primario">
@@ -492,7 +523,7 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                   </div>
                   
                   {/* BODY: Precios y descripción */}
-                  <div className="p-4 flex-grow">
+                  <div className="p-3 pl-12 flex-grow">
                     <div className="flex items-center justify-between mb-3">
                       {isCustomProduct(product) ? (
                         <span className="text-xl font-bold text-primario">{formatCurrency(product.catalog_price || product.price || 0)}</span>
@@ -545,7 +576,7 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
                   </div>
                   
                   {/* FOOTER: CTA promocional */}
-                  <div className="p-3 bg-secundario/20 border-t border-secundario mt-auto">
+                  <div className="p-3  bg-secundario/20 border-t border-secundario mt-auto">
                     <span className="text-sm font-medium text-texto flex flex-col items-center">
                       <div className="flex items-center">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-primario" fill="none" viewBox="0 0 24 24" stroke="currentColor">
