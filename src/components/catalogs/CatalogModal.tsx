@@ -13,8 +13,9 @@ interface CatalogModalProps {
   initialProductIds?: number[];
   initialProductsData?: CatalogProductInput[];
   initialCatalogId?: number;
+  initialLogoUrl?: string;
   isEditing?: boolean;
-  onSave: (name: string, productsData: CatalogProductInput[]) => void;
+  onSave: (name: string, productsData: CatalogProductInput[], logoUrl?: string) => void;
   onCancel: () => void;
 }
 
@@ -23,11 +24,13 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
   initialProductIds = [],
   initialProductsData = [],
   initialCatalogId,
+  initialLogoUrl = '',
   isEditing = false,
   onSave,
   onCancel
 }) => {
   const [name, setName] = useState(initialName);
+  const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [searchTerm, setSearchTerm] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -405,7 +408,7 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
       });
       
       // Llamar a la función onSave con el nombre del catálogo y los datos de los productos
-      await onSave(name, productsData);
+      await onSave(name, productsData, logoUrl);
       
       // Cerrar el modal si todo fue exitoso
       onCancel();
@@ -413,7 +416,7 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
       console.error('Error al guardar el catálogo:', error);
       alertService.error('Error al guardar el catálogo. Por favor, intente nuevamente.');
     }
-  }, [name, selectedProductIds, selectedProducts, onSave, isEditing, catalogIdRef, initialProductsData]);
+  }, [name, selectedProductIds, selectedProducts, onSave, isEditing, catalogIdRef, initialProductsData, logoUrl]);
 
   const getProductImage = useCallback((product: Product) => {
     // Usamos una aserción de tipos para manejar las propiedades extendidas de Product
@@ -534,6 +537,22 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
         </div>
 
         <div>
+          <label htmlFor="catalog-logo" className="block text-sm font-medium text-gray-700 mb-2">
+            Logo del catálogo
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              id="catalog-logo"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              className="block w-full p-4 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-primario focus:border-primario"
+              placeholder="Ingresa la URL del logo del catálogo"
+            />
+          </div>
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Seleccionar productos
           </label>
@@ -585,6 +604,7 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
                           type="button"
                           className="text-red-500 hover:text-red-700 p-1"
                           title="Eliminar producto"
+                          onClick={() => toggleProductSelection(product)}
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />

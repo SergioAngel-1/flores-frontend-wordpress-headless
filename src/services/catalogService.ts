@@ -62,7 +62,7 @@ const catalogService = {
   },
 
   // Crear un nuevo catálogo
-  create(data: { name: string, products: CatalogProductInput[] }) {
+  create(data: { name: string, products: CatalogProductInput[], logoUrl?: string }) {
     console.log('Datos recibidos para crear catálogo:', data);
     
     // Separar los productos personalizados no guardados de los productos regulares
@@ -72,6 +72,7 @@ const catalogService = {
     // Datos para enviar al endpoint de creación de catálogo
     const catalogData = {
       name: data.name,
+      logo_url: data.logoUrl || '',
       products: regularProducts
     };
     
@@ -127,18 +128,27 @@ const catalogService = {
   },
 
   // Actualizar un catálogo existente
-  update(catalogId: number, data: { name?: string, products?: CatalogProductInput[] }) {
+  update(catalogId: number, data: { name?: string, products?: CatalogProductInput[], logoUrl?: string }) {
     console.log('Datos recibidos para actualizar catálogo:', data);
     
     // Separar los productos personalizados no guardados de los productos regulares
-    const customUnsavedProducts = data.products ? data.products.filter(p => p.is_custom && p.unsaved_data) : [];
-    const regularProducts = data.products ? data.products.filter(p => !p.unsaved_data) : [];
+    const customUnsavedProducts = data.products?.filter(p => p.is_custom && p.unsaved_data) || [];
+    const regularProducts = data.products?.filter(p => !p.is_custom || !p.unsaved_data) || [];
     
     // Datos para enviar al endpoint de actualización de catálogo
-    const catalogData = {
-      name: data.name,
-      products: regularProducts
-    };
+    const catalogData: any = {};
+    
+    if (data.name) {
+      catalogData.name = data.name;
+    }
+    
+    if (data.logoUrl !== undefined) {
+      catalogData.logo_url = data.logoUrl;
+    }
+    
+    if (regularProducts.length > 0) {
+      catalogData.products = regularProducts;
+    }
     
     console.log('Datos a enviar al endpoint de actualización de catálogo:', catalogData);
     console.log('Productos personalizados a crear:', customUnsavedProducts);

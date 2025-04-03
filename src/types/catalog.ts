@@ -1,6 +1,7 @@
 export interface Catalog {
   id: number;
   name: string;
+  logo_url?: string;
   created_at: string;
   updated_at: string;
   product_count: number;

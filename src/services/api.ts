@@ -744,20 +744,6 @@ const catalogService = {
       });
   },
 
-  // Generar el PDF del catálogo
-  generatePDF(catalogId: number) {
-    return api.get(`/floresinc/v1/catalogs/${catalogId}/pdf`, {
-      responseType: 'blob'
-    })
-      .then(response => {
-        return response;
-      })
-      .catch(error => {
-        console.error(`Error al generar PDF del catálogo ${catalogId}:`, error);
-        throw new Error(getReadableErrorMessage(error));
-      });
-  },
-
   // Crear un nuevo catálogo
   create(data: { name: string, products: { id: number, catalog_price?: number | null }[] }) {
     console.log('API - Enviando solicitud para crear catálogo:', data);

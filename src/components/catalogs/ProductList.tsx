@@ -12,11 +12,12 @@ interface ProductListProps {
   viewType?: 'grid' | 'list';
 }
 
-const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, viewType: externalViewType }) => {
+const ProductList: React.FC<ProductListProps> = ({ products: initialProducts, onProductUpdate, viewType: externalViewType }) => {
   // Estados
   const [internalViewType, setInternalViewType] = useState<'grid' | 'list'>(externalViewType || 'grid');
   const [isProductEditModalOpen, setIsProductEditModalOpen] = useState(false);
   const [productToEdit, setProductToEdit] = useState<Product | null>(null);
+  const [products, setProducts] = useState<CatalogProduct[]>(initialProducts);
   
   // Actualizar el viewType interno cuando cambie el externo
   useEffect(() => {
@@ -24,6 +25,11 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
       setInternalViewType(externalViewType);
     }
   }, [externalViewType]);
+  
+  // Actualizar productos cuando cambien los props
+  useEffect(() => {
+    setProducts(initialProducts);
+  }, [initialProducts]);
   
   // Usar el viewType externo si está proporcionado, de lo contrario usar el interno
   const viewType = externalViewType || internalViewType;
@@ -132,8 +138,7 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
   const handleEditProduct = (product: CatalogProduct) => {
     console.log('Editando producto:', product);
 
-    // Convertir CatalogProduct a un formato compatible con ProductEditModal
-    // que espera Product con propiedades de catálogo adicionales
+    // Crear una copia profunda del producto para evitar problemas de referencia
     const productForEdit = {
       id: product.id,
       name: product.name,
@@ -154,16 +159,16 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
       status: 'publish',
       featured: false,
       catalog_visibility: 'visible',
-      // Propiedades específicas de catálogo
-      catalog_price: product.catalog_price,
-      product_price: product.product_price,
-      catalog_name: product.catalog_name,
-      catalog_description: product.catalog_description,
-      catalog_short_description: product.catalog_short_description,
-      catalog_sku: product.catalog_sku,
-      catalog_image: product.catalog_image,
-      catalog_images: product.catalog_images,
-      is_custom: product.is_custom
+      // Propiedades específicas de catálogo - asegurar que se pasen correctamente
+      catalog_price: product.catalog_price !== undefined ? product.catalog_price : null,
+      product_price: product.product_price !== undefined ? product.product_price : product.price,
+      catalog_name: product.catalog_name || null,
+      catalog_description: product.catalog_description || null,
+      catalog_short_description: product.catalog_short_description || null,
+      catalog_sku: product.catalog_sku || null,
+      catalog_image: product.catalog_image || null,
+      catalog_images: Array.isArray(product.catalog_images) ? [...product.catalog_images] : [],
+      is_custom: Boolean(product.is_custom)
     } as unknown as Product & { 
       catalog_price?: number | string | null;
       product_price?: number | string | null;
@@ -176,6 +181,9 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
       is_custom?: boolean;
     };
 
+    // Log para depuración
+    console.log('Producto preparado para edición:', productForEdit);
+    
     setProductToEdit(productForEdit);
     setIsProductEditModalOpen(true);
   };
@@ -187,7 +195,36 @@ const ProductList: React.FC<ProductListProps> = ({ products, onProductUpdate, vi
 
   const handleSaveProduct = useCallback(async (productId: number, updatedData: CatalogProductInput) => {
     try {
+      // Log para depuración
+      console.log('Guardando producto con datos:', updatedData);
+      
       await onProductUpdate(productId, updatedData);
+      
+      // Actualización optimista de la UI - actualizar el producto en la lista local
+      // para reflejar los cambios inmediatamente sin esperar una recarga completa
+      setProducts(prevProducts => 
+        prevProducts.map(p => {
+          if (p.id === productId) {
+            // Crear una copia del producto con los datos actualizados
+            // asegurando que los tipos sean compatibles
+            const updatedProduct: CatalogProduct = {
+              ...p,
+              catalog_price: typeof updatedData.catalog_price === 'number' 
+                ? String(updatedData.catalog_price) 
+                : updatedData.catalog_price,
+              catalog_name: updatedData.catalog_name || p.name,
+              catalog_sku: updatedData.catalog_sku,
+              catalog_description: updatedData.catalog_description,
+              catalog_short_description: updatedData.catalog_short_description,
+              catalog_image: updatedData.catalog_image,
+              catalog_images: updatedData.catalog_images || []
+            };
+            return updatedProduct;
+          }
+          return p;
+        })
+      );
+      
       alertService.success('Producto actualizado correctamente');
     } catch (error) {
       console.error('Error al actualizar el producto:', error);

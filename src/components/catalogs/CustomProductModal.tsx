@@ -56,16 +56,34 @@ const CustomProductModal: React.FC<CustomProductModalProps> = ({
     if (initialProduct && isEditing) {
       setName(initialProduct.name || '');
       
-      // Si el precio ya viene formateado como COP, usarlo directamente
-      // de lo contrario, formatearlo
-      if (initialProduct.price) {
-        if (typeof initialProduct.price === 'string' && initialProduct.price.includes('COP')) {
-          setPrice(initialProduct.price);
-        } else {
+      // Mejorar el manejo del precio inicial
+      if (initialProduct.price !== undefined && initialProduct.price !== null) {
+        // Verificar el tipo de dato y formato
+        if (typeof initialProduct.price === 'string') {
+          // Si ya es string, verificar si necesita formateo
+          if (initialProduct.price.includes('COP')) {
+            setPrice(initialProduct.price);
+          } else {
+            // Intentar convertir a número y formatear
+            const numPrice = parseFloat(initialProduct.price);
+            if (!isNaN(numPrice)) {
+              setPrice(formatCurrency(numPrice));
+            } else {
+              setPrice(formatCurrency(0));
+              logger.warn('CustomProductModal', `Precio no numérico recibido: ${initialProduct.price}`);
+            }
+          }
+        } else if (typeof initialProduct.price === 'number') {
+          // Si es número, formatear directamente
           setPrice(formatCurrency(initialProduct.price));
+          logger.debug('CustomProductModal', `Precio numérico formateado: ${initialProduct.price} -> ${formatCurrency(initialProduct.price)}`);
+        } else {
+          setPrice(formatCurrency(0));
+          logger.warn('CustomProductModal', `Tipo de precio no reconocido: ${typeof initialProduct.price}`);
         }
       } else {
         setPrice(formatCurrency(0));
+        logger.debug('CustomProductModal', 'Precio no definido, usando 0 como valor predeterminado');
       }
       
       setSku(initialProduct.sku || '');
@@ -120,7 +138,6 @@ const CustomProductModal: React.FC<CustomProductModalProps> = ({
     try {
       // Preparar imágenes
       const images: string[] = [];
-      if (mainImage) images.push(mainImage);
       if (secondaryImage1) images.push(secondaryImage1);
       if (secondaryImage2) images.push(secondaryImage2);
       
@@ -137,8 +154,8 @@ const CustomProductModal: React.FC<CustomProductModalProps> = ({
         sku,
         description,
         short_description: shortDescription,
-        image: mainImage,
-        images,
+        image: mainImage, // Solo la imagen principal
+        images: images, // Solo las imágenes secundarias
         is_custom: true // Marcar explícitamente como producto personalizado
       };
       

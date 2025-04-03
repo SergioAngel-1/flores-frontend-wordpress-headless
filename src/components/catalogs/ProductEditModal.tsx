@@ -46,9 +46,21 @@ const ProductEditModal: React.FC<ProductEditModalProps> = ({
     if (product) {
       // Usar los valores específicos del catálogo si existen, o los valores de WooCommerce como respaldo
       setName(product.catalog_name || product.name || '');
-      setPrice(product.catalog_price !== null && product.catalog_price !== undefined 
-        ? String(product.catalog_price) 
-        : null);
+      
+      // Corregir la inicialización del precio para asegurar que se muestra correctamente
+      if (product.catalog_price !== null && product.catalog_price !== undefined) {
+        // Convertir a string para el input, asegurando que sea un número válido
+        const priceValue = typeof product.catalog_price === 'string' 
+          ? product.catalog_price 
+          : String(product.catalog_price);
+        setPrice(priceValue);
+        
+        // Log para depuración
+        logger.debug('ProductEditModal', `Inicializando precio de catálogo: ${priceValue} (tipo: ${typeof product.catalog_price})`);
+      } else {
+        setPrice(null);
+      }
+      
       setProductPrice(product.product_price !== null && product.product_price !== undefined
         ? String(product.product_price)
         : product.price ? String(product.price) : null);

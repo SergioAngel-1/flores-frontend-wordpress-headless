@@ -102,14 +102,15 @@ const CatalogPage = () => {
     }
   }, [loading, filteredCatalogs]);
 
-  const handleCreateCatalog = useCallback(async (name: string, productsData: CatalogProductInput[]) => {
+  const handleCreateCatalog = useCallback(async (name: string, productsData: CatalogProductInput[], logoUrl?: string) => {
     try {
       setLoading(true);
       
       // Asegurar que los datos se envían en el formato correcto
       const catalogData = {
         name: name.trim(),
-        products: productsData
+        products: productsData,
+        logoUrl
       };
       
       console.log('Enviando datos para crear catálogo:', catalogData);
@@ -355,6 +356,7 @@ const CatalogPage = () => {
           onCancel={() => setShowModal(false)} 
           isEditing={isEditing}
           initialName={selectedCatalog?.name || ''}
+          initialLogoUrl={selectedCatalog?.logo_url || ''}
           initialCatalogId={selectedCatalog?.id}
           initialProductIds={selectedCatalog?.products?.map(p => p.id) || []}
           initialProductsData={selectedCatalog?.products?.map(p => ({

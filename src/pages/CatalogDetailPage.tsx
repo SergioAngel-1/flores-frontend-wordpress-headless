@@ -113,7 +113,7 @@ const CatalogDetailPage = () => {
     }
   }, [loading, products]);
 
-  const handleUpdateCatalog = useCallback(async (name: string, productsData: CatalogProductInput[]) => {
+  const handleUpdateCatalog = useCallback(async (name: string, productsData: CatalogProductInput[], logoUrl?: string) => {
     if (!catalog) return;
     
     try {
@@ -122,7 +122,8 @@ const CatalogDetailPage = () => {
       // Preparar los datos para la actualización
       const updateData = { 
         name, 
-        products: productsData 
+        products: productsData,
+        logoUrl
       };
       
       console.log('Enviando datos para actualizar catálogo:', updateData);
@@ -309,6 +310,7 @@ const CatalogDetailPage = () => {
           >
             <CatalogModal
               initialName={catalog.name}
+              initialLogoUrl={catalog.logo_url}
               initialProductIds={products.map(product => product.id)}
               initialProductsData={products.map(product => ({
                 id: product.id,
@@ -355,7 +357,7 @@ const CatalogDetailPage = () => {
                   catalogName={catalog.name}
                   products={products}
                   viewType={viewType}
-                  logoUrl="/wp-content/themes/FloresInc/assets/img/logo.png"
+                  logoUrl={catalog.logo_url || "/wp-content/themes/FloresInc/assets/img/logo.png"}
                 />
               </div>
 
@@ -364,7 +366,7 @@ const CatalogDetailPage = () => {
                   catalogName={catalog.name}
                   products={products}
                   viewType={viewType}
-                  logoUrl="/wp-content/themes/FloresInc/assets/img/logo.png"
+                  logoUrl={catalog.logo_url || "/wp-content/themes/FloresInc/assets/img/logo.png"}
                 />
               </div>
             </div>
