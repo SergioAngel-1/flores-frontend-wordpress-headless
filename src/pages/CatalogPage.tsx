@@ -56,15 +56,21 @@ const CatalogPage = () => {
 
   // Filtrar y paginar catálogos
   useEffect(() => {
+    // Asegurarse de que catalogs sea un array
+    const catalogsArray = Array.isArray(catalogs) ? catalogs : [];
+    
     // Primero filtramos por término de búsqueda
     const filtered = searchTerm 
-      ? catalogs.filter(catalog => 
-          catalog.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ? catalogsArray.filter(catalog => 
+          catalog?.name?.toLowerCase().includes(searchTerm.toLowerCase())
         )
-      : catalogs;
+      : catalogsArray;
+    
+    // Asegurarse de que filtered sea un array
+    const filteredArray = Array.isArray(filtered) ? filtered : [];
     
     // Calculamos el total de páginas
-    const newTotalPages = Math.ceil(filtered.length / catalogsPerPage);
+    const newTotalPages = Math.ceil(filteredArray.length / catalogsPerPage);
     setTotalPages(newTotalPages);
     
     // Ajustamos la página actual si está fuera de rango
@@ -77,7 +83,7 @@ const CatalogPage = () => {
     const endIndex = startIndex + catalogsPerPage;
     
     // Obtenemos los catálogos para la página actual
-    const paginatedCatalogs = filtered.slice(startIndex, endIndex);
+    const paginatedCatalogs = filteredArray.slice(startIndex, endIndex);
     
     setFilteredCatalogs(paginatedCatalogs);
   }, [catalogs, searchTerm, currentPage]);

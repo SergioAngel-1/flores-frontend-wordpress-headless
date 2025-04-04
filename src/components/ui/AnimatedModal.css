@@ -9,7 +9,7 @@
   justify-content: center;
   align-items: center;
   z-index: 1000;
-  padding: 2rem;
+  padding: 1rem;
   background-color: rgba(0, 0, 0, 0);
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(0px);
@@ -35,9 +35,9 @@
   border-radius: 0.5rem;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   width: 100%;
-  max-width: 600px;
+  /* Eliminamos el max-width fijo para permitir que las clases de Tailwind lo controlen */
   margin: 0 auto;
-  max-height: calc(100vh - 4rem);
+  max-height: 90vh;
   overflow: hidden;
   opacity: 0;
   transform: translateY(-20px) scale(0.95);
@@ -97,7 +97,7 @@
 .animated-modal-body {
   padding: 1.5rem;
   overflow-y: auto;
-  max-height: calc(100vh - 4rem - 60px); /* restar la altura del header */
+  max-height: calc(90vh - 60px); /* restar la altura del header */
 }
 
 /* Ajustes para móviles */

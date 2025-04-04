@@ -216,11 +216,77 @@ export const cleanImageUrlForStorage = (imageUrl: string | undefined | null | bo
     return '';
   }
   
-  logger.debug('formatters', `cleanImageUrlForStorage: Limpiando URL original: ${String(imageUrl)}`);
+  try {
+    // Convertir a string en caso de que sea otro tipo
+    let url = String(imageUrl);
+    logger.debug('formatters', `cleanImageUrlForStorage: Limpiando URL original: ${url}`);
+    
+    // Reemplazo de barras invertidas escapadas (\/) con barras normales (/)
+    url = url.replace(/\\\//g, '/');
+    
+    // Eliminar comillas al principio y al final si existen
+    url = url.replace(/^["']|["']$/g, '');
+    
+    // Eliminar espacios en blanco al inicio y final
+    url = url.trim();
+    
+    logger.debug('formatters', `cleanImageUrlForStorage: URL limpia: ${url}`);
+    return url;
+  } catch (error) {
+    logger.error('formatters', `Error al limpiar URL para almacenamiento: ${String(error)}`);
+    return '';
+  }
+};
+
+/**
+ * Valida y limpia un array de URLs de imágenes para guardarlas en la base de datos
+ * @param imageUrls Array de URLs de imágenes o string JSON
+ * @returns Array de URLs limpias y válidas
+ */
+export const validateImageUrlArray = (imageUrls: any): string[] => {
+  if (!imageUrls) {
+    return [];
+  }
   
-  // Eliminar comillas y espacios en blanco
-  const cleanUrl = String(imageUrl).replace(/^["'\s]+|["'\s]+$/g, '').trim();
+  let urlArray: any[] = [];
   
-  logger.debug('formatters', `cleanImageUrlForStorage: URL limpia: ${cleanUrl}`);
-  return cleanUrl;
+  try {
+    // Si es un string, intentar parsearlo como JSON
+    if (typeof imageUrls === 'string') {
+      try {
+        // Intentar analizar como JSON
+        const parsed = JSON.parse(imageUrls);
+        if (Array.isArray(parsed)) {
+          logger.debug('formatters', `validateImageUrlArray: Parseado string JSON a array con ${parsed.length} elementos`);
+          urlArray = parsed;
+        } else {
+          // Si no es un array después de parsear, convertirlo en array de un solo elemento
+          logger.debug('formatters', 'validateImageUrlArray: El string JSON parseado no es un array, usando como elemento único');
+          urlArray = [imageUrls];
+        }
+      } catch (error) {
+        // Si no se puede parsear como JSON, tratarlo como una sola URL
+        logger.debug('formatters', 'validateImageUrlArray: No se pudo parsear string como JSON, tratándolo como URL única');
+        urlArray = [imageUrls];
+      }
+    } else if (Array.isArray(imageUrls)) {
+      // Si ya es un array, usarlo directamente
+      urlArray = imageUrls;
+    } else {
+      // Para cualquier otro tipo, convertir a array de un elemento
+      urlArray = [imageUrls];
+    }
+    
+    // Filtrar valores nulos/undefined y limpiar cada URL
+    const validUrls = urlArray
+      .filter((url: any) => url !== null && url !== undefined && url !== false && url !== 'false')
+      .map((url: any) => cleanImageUrlForStorage(url))
+      .filter((url: string) => url !== ''); // Eliminar URLs vacías después de la limpieza
+    
+    logger.debug('formatters', `validateImageUrlArray: Procesadas ${urlArray.length} URLs, resultando en ${validUrls.length} válidas`);
+    return validUrls;
+  } catch (error) {
+    logger.error('formatters', `Error general en validateImageUrlArray: ${String(error)}`);
+    return [];
+  }
 };

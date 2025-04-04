@@ -68,7 +68,7 @@ const AnimatedModal: React.FC<AnimatedModalProps> = ({
       onClick={onClose}
     >
       <div 
-        className={`animated-modal-content ${isVisible ? 'visible' : ''} ${className} ${maxWidth} w-full`}
+        className={`animated-modal-content ${isVisible ? 'visible' : ''} ${maxWidth} ${className}`}
         onClick={(e) => e.stopPropagation()}
       >
         {!hideCloseButton && (

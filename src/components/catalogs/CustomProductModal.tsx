@@ -5,6 +5,15 @@ import alertService from '../../services/alertService';
 import { formatCurrency } from '../../utils/formatters';
 import logger from '../../utils/logger';
 
+// Componentes de formulario
+import FormInput from './components/ui/form/FormInput';
+import FormTextArea from './components/ui/form/FormTextArea';
+import FormImageInput from './components/ui/form/FormImageInput';
+import FormSecondaryImages from './components/ui/form/FormSecondaryImages';
+
+// Utilidades para manejo de productos
+import { normalizePrice, normalizeImageUrls, getValidProductImage } from './utils/productUtils';
+
 interface CustomProductModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -106,60 +115,33 @@ const CustomProductModal: React.FC<CustomProductModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validación básica
     if (!name.trim()) {
       alertService.error('El nombre del producto es obligatorio');
       return;
     }
     
-    // Verificar que el ID del catálogo sea válido
-    if (!catalogIdRef.current || catalogIdRef.current <= 0) {
-      logger.error('CustomProductModal', `Error: ID del catálogo inválido: ${catalogIdRef.current}`);
-      alertService.error('No se puede crear el producto: ID de catálogo inválido');
+    if (!price.trim() || isNaN(parseFloat(price))) {
+      alertService.error('El precio debe ser un número válido');
       return;
     }
     
-    // Convertir el precio al formato adecuado para guardar
-    let numericPrice: number;
-    if (typeof price === 'string') {
-      // Limpiar el precio de formato (COP, puntos, comas)
-      const cleanedPrice = price.replace(/COP\s*/i, '').replace(/\./g, '').replace(/,/g, '').trim();
-      numericPrice = parseFloat(cleanedPrice);
-      
-      if (isNaN(numericPrice)) {
-        alertService.error('El precio debe ser un número válido');
-        return;
-      }
-    } else {
-      numericPrice = price;
-    }
-    
-    setLoading(true);
-    
     try {
-      // Preparar imágenes
-      const images: string[] = [];
-      if (secondaryImage1) images.push(secondaryImage1);
-      if (secondaryImage2) images.push(secondaryImage2);
+      setLoading(true);
       
-      // Obtener el ID del catálogo del ref
-      const currentCatalogId = catalogIdRef.current;
-      
-      // Log para depuración
-      logger.info('CustomProductModal', `Preparando datos para crear producto personalizado con catalog_id: ${currentCatalogId}`);
-      
+      // Preparar datos del producto usando utilidades de normalización
       const productData: CreateCustomProductData = {
-        catalog_id: currentCatalogId,
-        name,
-        price: numericPrice,
-        sku,
-        description,
-        short_description: shortDescription,
-        image: mainImage, // Solo la imagen principal
-        images: images, // Solo las imágenes secundarias
+        catalog_id: catalogIdRef.current || 0, // Asegurar que sea un número válido
+        name: name.trim(),
+        price: normalizePrice(price),
+        sku: sku.trim(),
+        image: getValidProductImage(mainImage) || "",
+        images: normalizeImageUrls([secondaryImage1, secondaryImage2]),
+        description: description.trim(),
+        short_description: shortDescription.trim(),
         is_custom: true // Marcar explícitamente como producto personalizado
       };
       
-      // Log para depuración
       logger.info('CustomProductModal', 'Enviando datos de producto personalizado:', productData);
       
       await onSave(productData);
@@ -194,167 +176,78 @@ const CustomProductModal: React.FC<CustomProductModalProps> = ({
             {isEditing ? 'Editar Producto Personalizado' : 'Crear Producto Personalizado'}
           </h3>
           
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Nombre del producto */}
-            <div className="mb-4">
-              <label htmlFor="product-name" className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre del producto <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="product-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={`w-full p-2 border border-gray-300 rounded-md focus:ring-primario focus:border-primario`}
-                placeholder="Nombre del producto"
-              />
-            </div>
+            <FormInput
+              id="product-name"
+              label="Nombre del producto"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Nombre del producto"
+            />
             
-            {/* Precio */}
-            <div className="mb-4">
-              <label htmlFor="product-price" className="block text-sm font-medium text-gray-700 mb-1">
-                Precio <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="product-price"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                onBlur={() => {
-                  // Al perder el foco, formatear como COP
-                  try {
-                    setPrice(formatCurrency(price));
-                  } catch (error) {
-                    console.error('Error al formatear precio:', error);
-                  }
-                }}
-                className={`w-full p-2 border border-gray-300 rounded-md focus:ring-primario focus:border-primario`}
-                placeholder="Precio del producto (COP)"
-              />
-            </div>
+            {/* Precio del producto */}
+            <FormInput
+              id="product-price"
+              label="Precio"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="Precio del producto"
+            />
             
             {/* SKU */}
-            <div className="mb-4">
-              <label htmlFor="product-sku" className="block text-sm font-medium text-gray-700 mb-1">
-                SKU
-              </label>
-              <input
-                type="text"
-                id="product-sku"
-                value={sku}
-                onChange={(e) => setSku(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-primario focus:border-primario"
-                placeholder="SKU del producto"
+            <FormInput
+              id="product-sku"
+              label="SKU"
+              value={sku}
+              onChange={(e) => setSku(e.target.value)}
+              placeholder="SKU del producto"
+            />
+            
+            {/* Imágenes */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Imágenes del producto</h4>
+              
+              {/* Imagen principal */}
+              <div className="mb-4">
+                <FormImageInput
+                  label="Imagen principal"
+                  imageUrl={mainImage}
+                  onChange={setMainImage}
+                  placeholder="URL de la imagen principal"
+                  size="medium"
+                  fallbackImage="/wp-content/themes/FloresInc/assets/img/no-image.svg"
+                />
+              </div>
+              
+              {/* Imágenes secundarias */}
+              <FormSecondaryImages
+                image1Url={secondaryImage1}
+                image2Url={secondaryImage2}
+                onImage1Change={setSecondaryImage1}
+                onImage2Change={setSecondaryImage2}
               />
             </div>
             
             {/* Descripción corta */}
-            <div className="mb-4">
-              <label htmlFor="product-short-description" className="block text-sm font-medium text-gray-700 mb-1">
-                Descripción corta
-              </label>
-              <textarea
-                id="product-short-description"
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
-                rows={2}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-primario focus:border-primario"
-                placeholder="Descripción corta del producto"
-              />
-            </div>
+            <FormTextArea
+              id="product-short-description"
+              label="Descripción corta"
+              value={shortDescription}
+              onChange={(e) => setShortDescription(e.target.value)}
+              placeholder="Descripción corta del producto"
+              rows={3}
+            />
             
             {/* Descripción completa */}
-            <div className="mb-4">
-              <label htmlFor="product-description" className="block text-sm font-medium text-gray-700 mb-1">
-                Descripción completa
-              </label>
-              <textarea
-                id="product-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-primario focus:border-primario"
-                placeholder="Descripción completa del producto"
-              />
-            </div>
-            
-            {/* Imágenes del producto */}
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Imágenes del producto</h3>
-            
-            {/* Imagen principal */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Imagen principal
-              </label>
-              <div className="relative h-40 w-40 mx-auto mb-2 border border-gray-300 rounded-md overflow-hidden">
-                <img
-                  className="h-full w-full object-cover"
-                  src={mainImage || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
-                  alt="Imagen principal"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
-                  }}
-                />
-              </div>
-              <input
-                type="text"
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primario focus:border-primario sm:text-sm"
-                placeholder="URL de la imagen principal"
-                value={mainImage || ''}
-                onChange={(e) => setMainImage(e.target.value)}
-              />
-            </div>
-            
-            {/* Imágenes secundarias */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              {/* Imagen secundaria 1 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Imagen secundaria 1
-                </label>
-                <div className="relative h-24 w-24 mx-auto mb-2 border border-gray-300 rounded-md overflow-hidden">
-                  <img
-                    className="h-full w-full object-cover"
-                    src={secondaryImage1 || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
-                    alt="Imagen secundaria 1"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
-                    }}
-                  />
-                </div>
-                <input
-                  type="text"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primario focus:border-primario sm:text-sm"
-                  placeholder="URL de imagen secundaria 1"
-                  value={secondaryImage1 || ''}
-                  onChange={(e) => setSecondaryImage1(e.target.value)}
-                />
-              </div>
-              
-              {/* Imagen secundaria 2 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Imagen secundaria 2
-                </label>
-                <div className="relative h-24 w-24 mx-auto mb-2 border border-gray-300 rounded-md overflow-hidden">
-                  <img
-                    className="h-full w-full object-cover"
-                    src={secondaryImage2 || '/wp-content/themes/FloresInc/assets/img/no-image.svg'} 
-                    alt="Imagen secundaria 2"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/wp-content/themes/FloresInc/assets/img/no-image.svg';
-                    }}
-                  />
-                </div>
-                <input
-                  type="text"
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primario focus:border-primario sm:text-sm"
-                  placeholder="URL de imagen secundaria 2"
-                  value={secondaryImage2 || ''}
-                  onChange={(e) => setSecondaryImage2(e.target.value)}
-                />
-              </div>
-            </div>
+            <FormTextArea
+              id="product-description"
+              label="Descripción completa"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Descripción completa del producto"
+              rows={5}
+            />
           </form>
         </div>
         

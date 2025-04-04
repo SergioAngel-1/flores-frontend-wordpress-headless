@@ -26,7 +26,12 @@ const CatalogDetailPage = () => {
       console.log(`Cargando productos completos del catálogo ${catalogId}...`);
       const catalogProducts = await catalogService.getCompleteProducts(catalogId);
       console.log('Productos cargados:', catalogProducts);
-      setProducts(catalogProducts);
+      
+      // Asegurarse de que catalogProducts sea un array
+      const productsArray = Array.isArray(catalogProducts) ? catalogProducts : [];
+      console.log('Array de productos normalizado:', productsArray);
+      
+      setProducts(productsArray);
     } catch (error) {
       console.error('Error al cargar productos del catálogo:', error);
       alertService.error('Error al cargar los productos del catálogo');
@@ -51,7 +56,13 @@ const CatalogDetailPage = () => {
         // Utilizamos el slug para buscar el catálogo
         console.log(`Obteniendo catálogo por slug: ${slug}`);
         const allCatalogs = await catalogService.getAll();
-        const foundCatalog = allCatalogs.find((cat: Catalog) => {
+        
+        // Asegurarse de que allCatalogs sea un array
+        const catalogsArray = Array.isArray(allCatalogs) ? allCatalogs : (allCatalogs?.catalogs || []);
+        
+        console.log('Catálogos obtenidos:', catalogsArray);
+        
+        const foundCatalog = catalogsArray.find((cat: Catalog) => {
           const catSlug = cat.name
             .toLowerCase()
             .normalize('NFD')
@@ -311,8 +322,8 @@ const CatalogDetailPage = () => {
             <CatalogModal
               initialName={catalog.name}
               initialLogoUrl={catalog.logo_url}
-              initialProductIds={products.map(product => product.id)}
-              initialProductsData={products.map(product => ({
+              initialProductIds={(Array.isArray(products) ? products : []).map(product => product.id)}
+              initialProductsData={(Array.isArray(products) ? products : []).map(product => ({
                 id: product.id,
                 product_id: product.id,
                 catalog_price: product.catalog_price ? parseFloat(String(product.catalog_price)) : null,

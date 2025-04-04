@@ -24,7 +24,19 @@ const catalogService = {
   // Obtener todos los catálogos
   getAll() {
     return api.get('/floresinc/v1/catalogs')
-      .then(response => response.data)
+      .then(response => {
+        // Extraer los datos correctamente de la respuesta
+        const responseData = response.data;
+        
+        // Verificar si los datos están anidados en una propiedad 'data'
+        if (responseData && responseData.status === 'success' && Array.isArray(responseData.data)) {
+          console.log('Catálogos obtenidos correctamente:', responseData.data);
+          return responseData.data;
+        }
+        
+        // Si no están anidados, devolver la respuesta directamente
+        return responseData;
+      })
       .catch(error => {
         console.error('Error al obtener catálogos:', error);
         throw new Error(getReadableErrorMessage(error));
@@ -34,7 +46,18 @@ const catalogService = {
   // Obtener un catálogo específico por ID
   getById(catalogId: number) {
     return api.get(`/floresinc/v1/catalogs/${catalogId}`)
-      .then(response => response.data)
+      .then(response => {
+        const responseData = response.data;
+        
+        // Verificar si los datos están anidados en una propiedad 'data'
+        if (responseData && responseData.status === 'success' && responseData.data) {
+          console.log(`Catálogo ${catalogId} obtenido correctamente:`, responseData.data);
+          return responseData.data;
+        }
+        
+        // Si no están anidados, devolver la respuesta directamente
+        return responseData;
+      })
       .catch(error => {
         console.error(`Error al obtener catálogo ${catalogId}:`, error);
         throw new Error(getReadableErrorMessage(error));
@@ -44,7 +67,18 @@ const catalogService = {
   // Obtener productos de un catálogo
   getProducts(catalogId: number) {
     return api.get(`/floresinc/v1/catalogs/${catalogId}/products`)
-      .then(response => response.data)
+      .then(response => {
+        const responseData = response.data;
+        
+        // Verificar si los datos están anidados en una propiedad 'data'
+        if (responseData && responseData.status === 'success' && responseData.data) {
+          console.log(`Productos del catálogo ${catalogId} obtenidos correctamente:`, responseData.data);
+          return responseData.data;
+        }
+        
+        // Si no están anidados, devolver la respuesta directamente
+        return responseData;
+      })
       .catch(error => {
         console.error(`Error al obtener productos del catálogo ${catalogId}:`, error);
         throw new Error(getReadableErrorMessage(error));
@@ -54,7 +88,18 @@ const catalogService = {
   // Obtener productos completos de un catálogo (con toda la información necesaria para mostrar)
   getCompleteProducts(catalogId: number) {
     return api.get(`/floresinc/v1/catalogs/${catalogId}/complete-products`)
-      .then(response => response.data)
+      .then(response => {
+        const responseData = response.data;
+        
+        // Verificar si los datos están anidados en una propiedad 'data'
+        if (responseData && responseData.status === 'success' && responseData.data) {
+          console.log(`Productos completos del catálogo ${catalogId} obtenidos correctamente:`, responseData.data);
+          return responseData.data;
+        }
+        
+        // Si no están anidados, devolver la respuesta directamente
+        return responseData;
+      })
       .catch(error => {
         console.error(`Error al obtener productos completos del catálogo ${catalogId}:`, error);
         throw new Error(getReadableErrorMessage(error));

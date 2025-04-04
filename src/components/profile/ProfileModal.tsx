@@ -35,7 +35,8 @@ const ProfileModal = ({ isOpen, onClose, activeSection = 'profile' }: ProfileMod
     <AnimatedModal 
       isOpen={isOpen} 
       onClose={onClose} 
-      className="max-w-5xl w-full"
+      className="w-full"
+      maxWidth="max-w-5xl"
       title="Mi cuenta"
     >
       <div className="flex flex-col md:flex-row rounded-lg">
@@ -106,11 +107,13 @@ const ProfileModal = ({ isOpen, onClose, activeSection = 'profile' }: ProfileMod
         </div>
         
         {/* Contenido de la tab activa */}
-        <div className="md:w-3/4 p-4 md:p-6 overflow-x-hidden">
-          {activeTab === 'profile' && <ProfileSection />}
-          {activeTab === 'addresses' && <AddressesSection />}
-          {activeTab === 'orders' && <OrdersSection />}
-          {activeTab === 'referrals' && <ReferralsSection onClose={onClose} />}
+        <div className="md:w-3/4 p-4 md:p-6 overflow-x-hidden overflow-y-auto">
+          <div className="min-w-0 w-full"> {/* Contenedor para evitar desbordamiento horizontal */}
+            {activeTab === 'profile' && <ProfileSection />}
+            {activeTab === 'addresses' && <AddressesSection />}
+            {activeTab === 'orders' && <OrdersSection />}
+            {activeTab === 'referrals' && <ReferralsSection onClose={onClose} />}
+          </div>
         </div>
       </div>
     </AnimatedModal>

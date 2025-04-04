@@ -1,12 +1,28 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Product } from '../../types/woocommerce';
-import { CatalogProductInput, CreateCustomProductData } from '../../types/catalog';
+import { CatalogProductInput, CreateCustomProductData, CustomProduct } from '../../types/catalog';
 import productService from '../../services/productService';
 import catalogService from '../../services/catalogService';
 import alertService from '../../services/alertService';
-import { formatCurrency, getValidImageUrl } from '../../utils/formatters';
+import { formatCurrency } from '../../utils/formatters';
 import CustomProductModal from './CustomProductModal';
-import LoadingSpinner from '../ui/LoadingSpinner';
+import logger from '../../utils/logger';
+
+// Componentes reutilizables
+// CatalogHeader se ha eliminado ya que no se utiliza
+import ProductSelector from './components/ui/ProductSelector';
+import SelectedProductsList from './components/ui/SelectedProductsList';
+import FormInput from './components/ui/form/FormInput';
+import FormActions from './components/ui/form/FormActions';
+import FormImageInput from './components/ui/form/FormImageInput';
+
+// Utilidades para normalización de productos
+import { 
+  normalizePrice, 
+  getProductMainImage, 
+  normalizeImageUrls, 
+  getValidProductImage 
+} from './utils/productUtils';
 
 interface CatalogModalProps {
   initialName?: string;
@@ -36,152 +52,88 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<number[]>(initialProductIds || []);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadRef = useRef(false);
   const [isCustomProductModalOpen, setIsCustomProductModalOpen] = useState(false);
+  const [currentEditingProduct, setCurrentEditingProduct] = useState<Product | null>(null);
 
-  // Guardar el ID del catálogo en un ref para asegurar que esté disponible en todo momento
-  const catalogIdRef = useRef<number | undefined>(initialCatalogId);
+  const catalogIdRef = useRef<number>(initialCatalogId || 0);
 
-  // Actualizar el ref cuando cambie initialCatalogId
   useEffect(() => {
-    // Actualizar solo si initialCatalogId es un valor válido
-    if (initialCatalogId !== undefined && initialCatalogId !== null) {
+    if (initialCatalogId) {
       catalogIdRef.current = initialCatalogId;
     }
   }, [initialCatalogId]);
 
-  // Cargar productos seleccionados
   const loadSelectedProducts = useCallback(async () => {
-    if (initialCatalogId && initialProductIds.length > 0) {
+    if (initialProductIds.length > 0) {
       try {
-        // Si estamos editando un catálogo existente, obtener los productos directamente de la tabla de catálogos
         if (isEditing && initialCatalogId) {
           const catalogProductsResponse = await catalogService.getCompleteProducts(initialCatalogId);
           if (catalogProductsResponse && Array.isArray(catalogProductsResponse)) {
             setSelectedProducts(catalogProductsResponse);
-            setSelectedProductIds(catalogProductsResponse.map(p => p.id));
             return;
           }
         }
-        
-        // Si no estamos editando o no se pudieron obtener los productos del catálogo,
-        // usar el método anterior como fallback
-        
-        // Si ya tenemos los datos iniciales de los productos, usarlos directamente
+
         if (initialProductsData && initialProductsData.length > 0 && 
             initialProductsData.length === initialProductIds.length) {
-          // Obtener los productos completos usando los IDs
           const productsPromises = initialProductsData.map(async (catalogProduct) => {
-            // Si es un producto personalizado (product_id = 0 o undefined/null y catalog_name existe), 
-            // no intentar obtenerlo de WooCommerce
             if ((catalogProduct.product_id === 0 || catalogProduct.product_id === undefined || catalogProduct.product_id === null) && 
                 catalogProduct.catalog_name) {
-              // Devolver un producto personalizado construido a partir de los datos del catálogo
               return {
-                id: catalogProduct.id,
+                id: catalogProduct.id || catalogProduct.product_id || 0,
                 name: catalogProduct.catalog_name || 'Producto personalizado',
-                price: catalogProduct.catalog_price?.toString() || '0',
+                price: normalizePrice(catalogProduct.catalog_price?.toString() || '0'),
                 description: catalogProduct.catalog_description || '',
                 short_description: catalogProduct.catalog_short_description || '',
                 sku: catalogProduct.catalog_sku || '',
-                images: catalogProduct.catalog_images ? 
-                  catalogProduct.catalog_images.map(img => ({ src: img })) : [],
-                // Propiedades necesarias para el componente
-                catalog_price: catalogProduct.catalog_price,
-                catalog_name: catalogProduct.catalog_name,
-                catalog_description: catalogProduct.catalog_description,
-                catalog_short_description: catalogProduct.catalog_short_description,
-                catalog_sku: catalogProduct.catalog_sku,
-                catalog_image: catalogProduct.catalog_image,
-                catalog_images: catalogProduct.catalog_images,
+                catalog_price: normalizePrice(catalogProduct.catalog_price?.toString() || '0'),
+                product_price: normalizePrice(catalogProduct.product_price?.toString() || '0'),
+                catalog_image: getValidProductImage(catalogProduct.catalog_image),
+                catalog_images: normalizeImageUrls(catalogProduct.catalog_images || []),
                 is_custom: true
               };
             } else {
-              // Para productos normales, obtenerlos de WooCommerce
               try {
-                // Asegurarnos de que no intentamos obtener productos con ID <= 0
                 const productId = catalogProduct.product_id || catalogProduct.id;
-                if (productId <= 0 || !productId) {
-                  // Es un producto personalizado sin datos suficientes
+                if (!productId || productId <= 0) {
+                  console.error('ID de producto inválido:', productId);
+                  return null;
+                }
+                
+                const response = await productService.getById(productId);
+                const product = response.data;
+                
+                if (product) {
                   return {
-                    id: catalogProduct.id || 0,
-                    name: catalogProduct.catalog_name || 'Producto personalizado',
-                    price: catalogProduct.catalog_price?.toString() || '0',
-                    description: catalogProduct.catalog_description || '',
-                    short_description: catalogProduct.catalog_short_description || '',
-                    sku: catalogProduct.catalog_sku || '',
-                    images: catalogProduct.catalog_images ? 
-                      catalogProduct.catalog_images.map(img => ({ src: img })) : [],
-                    catalog_price: catalogProduct.catalog_price,
-                    catalog_name: catalogProduct.catalog_name,
-                    catalog_description: catalogProduct.catalog_description,
-                    catalog_short_description: catalogProduct.catalog_short_description,
-                    catalog_sku: catalogProduct.catalog_sku,
-                    catalog_image: catalogProduct.catalog_image,
-                    catalog_images: catalogProduct.catalog_images,
-                    is_custom: true
+                    ...product,
+                    catalog_price: normalizePrice(catalogProduct.catalog_price?.toString() || product.price),
+                    product_price: normalizePrice(catalogProduct.product_price?.toString() || product.price),
+                    catalog_name: catalogProduct.catalog_name || product.name,
+                    catalog_description: catalogProduct.catalog_description || product.description,
+                    catalog_short_description: catalogProduct.catalog_short_description || product.short_description,
+                    catalog_sku: catalogProduct.catalog_sku || product.sku,
+                    catalog_image: getValidProductImage(catalogProduct.catalog_image) || getProductMainImage(product),
+                    catalog_images: normalizeImageUrls(catalogProduct.catalog_images || [])
                   };
                 }
                 
-                // Verificar si el producto ya está en caché para evitar solicitudes innecesarias
-                try {
-                  const response = await productService.getById(productId);
-                  const product = response.data;
-                  
-                  // Combinar con datos del catálogo
-                  return {
-                    ...product,
-                    catalog_price: catalogProduct.catalog_price,
-                    catalog_name: catalogProduct.catalog_name,
-                    catalog_description: catalogProduct.catalog_description,
-                    catalog_short_description: catalogProduct.catalog_short_description,
-                    catalog_sku: catalogProduct.catalog_sku,
-                    catalog_image: catalogProduct.catalog_image,
-                    catalog_images: catalogProduct.catalog_images
-                  };
-                } catch (error) {
-                  console.error(`Error al cargar el producto ${productId}:`, error);
-                  
-                  // Si hay error al cargar el producto, tratarlo como producto personalizado
-                  return {
-                    id: catalogProduct.id || 0,
-                    name: catalogProduct.catalog_name || `Producto personalizado`,
-                    price: catalogProduct.catalog_price?.toString() || '0',
-                    description: catalogProduct.catalog_description || '',
-                    short_description: catalogProduct.catalog_short_description || '',
-                    sku: catalogProduct.catalog_sku || '',
-                    images: [],
-                    catalog_price: catalogProduct.catalog_price,
-                    catalog_name: catalogProduct.catalog_name,
-                    catalog_description: catalogProduct.catalog_description,
-                    catalog_short_description: catalogProduct.catalog_short_description,
-                    catalog_sku: catalogProduct.catalog_sku,
-                    catalog_image: catalogProduct.catalog_image,
-                    catalog_images: catalogProduct.catalog_images,
-                    is_custom: true
-                  };
-                }
+                return null;
               } catch (error) {
                 console.error('Error al cargar productos:', error);
                 
-                // Si hay error al cargar los productos, usar los datos del catálogo
                 return {
-                  id: catalogProduct.id,
-                  name: catalogProduct.catalog_name || `Producto ${catalogProduct.product_id || catalogProduct.id}`,
-                  price: catalogProduct.catalog_price?.toString() || '0',
+                  id: catalogProduct.product_id || 0,
+                  name: catalogProduct.catalog_name || 'Producto no disponible',
+                  price: normalizePrice(catalogProduct.catalog_price?.toString() || '0'),
                   description: catalogProduct.catalog_description || '',
                   short_description: catalogProduct.catalog_short_description || '',
                   sku: catalogProduct.catalog_sku || '',
-                  images: [],
-                  catalog_price: catalogProduct.catalog_price,
-                  catalog_name: catalogProduct.catalog_name,
-                  catalog_description: catalogProduct.catalog_description,
-                  catalog_short_description: catalogProduct.catalog_short_description,
-                  catalog_sku: catalogProduct.catalog_sku,
-                  catalog_image: catalogProduct.catalog_image,
-                  catalog_images: catalogProduct.catalog_images,
-                  is_custom: true
+                  catalog_price: normalizePrice(catalogProduct.catalog_price?.toString() || '0'),
+                  product_price: normalizePrice(catalogProduct.product_price?.toString() || '0'),
+                  catalog_image: getValidProductImage(catalogProduct.catalog_image),
+                  catalog_images: normalizeImageUrls(catalogProduct.catalog_images || []),
+                  is_unavailable: true
                 };
               }
             }
@@ -189,92 +141,45 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
           
           const products = await Promise.all(productsPromises);
           
-          // Asegurarse de que no hay duplicados
-          const uniqueProducts = products;
-          const uniqueIds = [...new Set(initialProductIds)];
+          const validProducts = products.filter(Boolean) as Product[];
+          setSelectedProducts(validProducts);
           
-          setSelectedProducts(uniqueProducts as Product[]);
-          setSelectedProductIds(uniqueIds);
+          return;
         } else {
-          // Si no tenemos datos iniciales, intentar cargar productos desde WooCommerce
-          // Pero verificar primero si hay IDs especiales (para productos personalizados)
           const productsPromises = initialProductIds.map(async (id) => {
-            // Si el ID es 0 o negativo, es un producto personalizado
-            if (id <= 0 || !id) {
-              // Buscar si hay datos adicionales en initialProductsData
-              const catalogData = initialProductsData?.find(p => p.id === id);
-              
-              if (catalogData) {
-                return {
-                  id: catalogData.id,
-                  name: catalogData.catalog_name || 'Producto personalizado',
-                  price: catalogData.catalog_price?.toString() || '0',
-                  description: catalogData.catalog_description || '',
-                  short_description: catalogData.catalog_short_description || '',
-                  sku: catalogData.catalog_sku || '',
-                  images: catalogData.catalog_images ? 
-                    catalogData.catalog_images.map(img => ({ src: img })) : [],
-                  catalog_price: catalogData.catalog_price,
-                  catalog_name: catalogData.catalog_name,
-                  catalog_description: catalogData.catalog_description,
-                  catalog_short_description: catalogData.catalog_short_description,
-                  catalog_sku: catalogData.catalog_sku,
-                  catalog_image: catalogData.catalog_image,
-                  catalog_images: catalogData.catalog_images,
-                  is_custom: true
-                };
-              } else {
-                // Si no hay datos adicionales, crear un producto personalizado básico
-                return {
-                  id,
-                  name: 'Producto personalizado',
-                  price: '0',
-                  images: [],
-                  is_custom: true
-                };
-              }
-            } else {
-              // Para productos normales, obtenerlos de WooCommerce
-              try {
-                // Verificar si el producto ya está en caché para evitar solicitudes innecesarias
+            if (id <= 0) {
+              if (initialCatalogId) {
                 try {
-                  const response = await productService.getById(id);
-                  return response.data;
-                } catch (error) {
-                  console.error(`Error al cargar el producto ${id}:`, error);
-                  
-                  // Si hay error al cargar el producto, tratarlo como producto personalizado
-                  return {
-                    id,
-                    name: `Producto personalizado`,
-                    price: '0',
-                    images: [],
-                    is_custom: true
-                  };
+                  // Obtenemos los productos completos del catálogo y buscamos el personalizado por su ID
+                  const catalogProductsResponse = await catalogService.getCompleteProducts(initialCatalogId);
+                  const customProduct = catalogProductsResponse.find((product: any) => product.id === Math.abs(id) || product.product_id === Math.abs(id));
+                  if (customProduct) {
+                    return {
+                      ...customProduct,
+                      is_custom: true
+                    };
+                  }
+                } catch (customError) {
+                  console.error('Error al cargar producto personalizado:', customError);
                 }
-              } catch (error) {
-                console.error('Error al cargar productos:', error);
-                
-                // Si hay error al cargar los productos, usar los datos del catálogo
-                return {
-                  id,
-                  name: `Producto ${id}`,
-                  price: '0',
-                  images: [],
-                  is_custom: true
-                };
               }
+              
+              return null;
+            }
+            
+            try {
+              const response = await productService.getById(id);
+              return response.data;
+            } catch (error) {
+              console.error(`Error al cargar producto ${id}:`, error);
+              return null;
             }
           });
           
           const products = await Promise.all(productsPromises);
           
-          // Asegurarse de que no hay duplicados
-          const uniqueProducts = products;
-          const uniqueIds = [...new Set(initialProductIds)];
-          
-          setSelectedProducts(uniqueProducts as Product[]);
-          setSelectedProductIds(uniqueIds);
+          const validProducts = products.filter(Boolean) as Product[];
+          setSelectedProducts(validProducts);
         }
       } catch (error) {
         console.error('Error al cargar productos seleccionados:', error);
@@ -283,86 +188,87 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
     }
   }, [initialCatalogId, initialProductIds, initialProductsData, isEditing]);
 
-  // Cargar productos seleccionados inicialmente
   useEffect(() => {
     const loadInitialProducts = async () => {
-      if (initialProductIds.length === 0 || initialLoadRef.current) return;
-      
-      try {
-        setLoading(true);
+      if (!initialLoadRef.current && initialProductIds.length > 0) {
+        initialLoadRef.current = true;
         
         await loadSelectedProducts();
-        
-        initialLoadRef.current = true;
-      } catch (error) {
-        console.error('Error al cargar productos seleccionados:', error);
-        alertService.error('Error al cargar productos seleccionados');
-      } finally {
-        setLoading(false);
       }
     };
     
     loadInitialProducts();
-  }, [initialProductIds, initialProductsData, loadSelectedProducts]);
+  }, [initialProductIds, loadSelectedProducts]);
 
-  // Buscar productos
-  useEffect(() => {
-    const searchProducts = async () => {
-      try {
-        setLoading(true);
-        let response;
-        
-        if (searchTerm.trim().length < 2) {
-          // Cargar los primeros 10 productos si no hay término de búsqueda
-          response = await productService.getAll({ per_page: 10 });
-        } else {
-          // Buscar productos según el término
-          response = await productService.search(searchTerm);
-        }
-        
-        setProducts(response.data);
-      } catch (error) {
-        console.error('Error al buscar productos:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
+  const searchProducts = useCallback(async (term: string) => {
+    if (!term.trim()) {
+      setProducts([]);
+      return;
     }
-    
-    searchTimeoutRef.current = setTimeout(searchProducts, 500);
-    
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [searchTerm]);
-  
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
-  }, []);
-  
+
+    try {
+      setLoading(true);
+      const response = await productService.search(term);
+      const result = response.data;
+      
+      const filteredResults = result.filter(product => 
+        !selectedProductIds.includes(product.id)
+      );
+      
+      setProducts(filteredResults);
+    } catch (error) {
+      console.error('Error al buscar productos:', error);
+      alertService.error('Error al buscar productos');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedProductIds]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    searchProducts(value);
+  };
+
   const toggleProductSelection = useCallback((product: Product) => {
-    // Verificar si el producto ya está seleccionado por su ID
     const isSelected = selectedProductIds.includes(product.id);
     
     if (isSelected) {
-      // Eliminar el producto
-      setSelectedProducts(prev => prev.filter(p => p.id !== product.id));
-      setSelectedProductIds(prev => prev.filter(id => id !== product.id));
+      setSelectedProducts(prevProducts => 
+        prevProducts.filter(p => p.id !== product.id)
+      );
+      setSelectedProductIds(prevIds => 
+        prevIds.filter(id => id !== product.id)
+      );
     } else {
-      // Verificar que el producto no esté ya en la lista antes de agregarlo
-      if (!selectedProductIds.includes(product.id)) {
-        // Agregar el producto
-        setSelectedProducts(prev => [...prev, product]);
-        setSelectedProductIds(prev => [...prev, product.id]);
-      }
+      // Convertir el producto al formato esperado por el estado
+      const normalizedProduct = {
+        ...product,
+        price: normalizePrice(product.price),
+        // Propiedades adicionales para el catálogo
+        catalog_price: normalizePrice(product.price),
+        product_price: normalizePrice(product.price),
+        // Mantener la estructura original de images como Image[]
+        images: (product.images || []).map(img => {
+          if (typeof img === 'string') {
+            // Si es string, crear un objeto Image
+            return {
+              id: 0,
+              src: img,
+              name: '',
+              alt: '',
+              date_created: '',
+              date_modified: ''
+            };
+          }
+          return img; // Si ya es un objeto Image, mantenerlo
+        })
+      };
+      
+      setSelectedProducts(prevProducts => [...prevProducts, normalizedProduct]);
+      setSelectedProductIds(prevIds => [...prevIds, product.id]);
     }
   }, [selectedProductIds]);
-  
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -371,8 +277,7 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
       return;
     }
     
-    // Validar que haya al menos un producto seleccionado
-    if (selectedProductIds.length === 0) {
+    if (selectedProducts.length === 0) {
       alertService.error('Por favor, selecciona al menos un producto para el catálogo.');
       return;
     }
@@ -380,26 +285,31 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
     try {
       setLoading(true);
       
-      // Preparar los datos de los productos
       const productsData = selectedProducts.map(product => {
-        // Buscar si hay datos personalizados para este producto
-        const existingData = initialProductsData?.find(p => p.id === product.id || p.product_id === product.id);
+        const existingData = initialProductsData?.find(
+          p => p.product_id === product.id || p.id === product.id
+        );
         
-        // Crear un objeto con los datos del producto
+        const mainImage = getValidProductImage((product as any).catalog_image) || 
+                         getProductMainImage(product);
+        
+        const additionalImages = normalizeImageUrls((product as any).catalog_images || []);
+        
+        // Usar los datos existentes como base y sobrescribir con los nuevos datos
         const productData: CatalogProductInput = {
           id: product.id,
           product_id: product.id,
-          catalog_price: existingData?.catalog_price !== undefined ? existingData.catalog_price : null,
-          product_price: product.price ? parseFloat(product.price) : null,
-          catalog_name: existingData?.catalog_name || product.name,
-          catalog_description: existingData?.catalog_description || product.description,
-          catalog_short_description: existingData?.catalog_short_description || product.short_description,
-          catalog_sku: existingData?.catalog_sku || product.sku,
-          catalog_image: existingData?.catalog_image || (product.images && product.images.length > 0 ? product.images[0].src : undefined),
-          catalog_images: existingData?.catalog_images || (product.images ? product.images.map(img => img.src) : [])
+          // Preservar datos existentes o usar los nuevos/predeterminados
+          catalog_price: parseFloat(normalizePrice((product as any).catalog_price || existingData?.catalog_price || product.price)),
+          product_price: parseFloat(normalizePrice((product as any).product_price || existingData?.product_price || product.price)),
+          catalog_name: (product as any).catalog_name || existingData?.catalog_name || product.name,
+          catalog_description: (product as any).catalog_description || existingData?.catalog_description || product.description,
+          catalog_short_description: (product as any).catalog_short_description || existingData?.catalog_short_description || product.short_description,
+          catalog_sku: (product as any).catalog_sku || existingData?.catalog_sku || product.sku,
+          catalog_image: mainImage || existingData?.catalog_image || undefined,
+          catalog_images: additionalImages.length > 0 ? additionalImages : existingData?.catalog_images || []
         };
         
-        // Si es un producto personalizado, marcar como tal
         if ((product as any).is_custom) {
           productData.is_custom = true;
         }
@@ -407,302 +317,208 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
         return productData;
       });
       
-      // Llamar a la función onSave con el nombre del catálogo y los datos de los productos
-      await onSave(name, productsData, logoUrl);
+      await onSave(name, productsData, getValidProductImage(logoUrl) || undefined);
       
-      // Cerrar el modal si todo fue exitoso
       onCancel();
+      alertService.success(`Catálogo ${isEditing ? 'actualizado' : 'creado'} con éxito`);
     } catch (error) {
       console.error('Error al guardar el catálogo:', error);
       alertService.error('Error al guardar el catálogo. Por favor, intente nuevamente.');
+    } finally {
+      setLoading(false);
     }
-  }, [name, selectedProductIds, selectedProducts, onSave, isEditing, catalogIdRef, initialProductsData, logoUrl]);
-
-  const getProductImage = useCallback((product: Product) => {
-    // Usamos una aserción de tipos para manejar las propiedades extendidas de Product
-    const extendedProduct = product as Product & { 
-      catalog_images?: string[]; 
-      catalog_image?: string | null;
-    };
-    
-    // Comprobar si el producto tiene imágenes específicas del catálogo
-    if (extendedProduct.catalog_images && extendedProduct.catalog_images.length > 0) {
-      return getValidImageUrl(extendedProduct.catalog_images[0]);
-    }
-    
-    // Si no hay imágenes específicas del catálogo, usar imágenes estándar del producto
-    if (product.images && product.images.length > 0) {
-      return getValidImageUrl(product.images[0].src);
-    }
-    
-    // Si el producto tiene una imagen de catálogo específica
-    if (extendedProduct.catalog_image) {
-      return getValidImageUrl(extendedProduct.catalog_image);
-    }
-    
-    // Usar un ícono SVG local si no hay imágenes disponibles
-    return '/wp-content/themes/FloresInc/assets/img/no-image.svg';
-  }, []);
+  }, [name, selectedProductIds, selectedProducts, onSave, isEditing, initialProductsData, logoUrl, onCancel]);
 
   const handleAddCustomProduct = useCallback(() => {
     setIsCustomProductModalOpen(true);
   }, []);
 
-  const handleCreateCustomProduct = useCallback(async (customProductData: CreateCustomProductData): Promise<void> => {
+  const handleCustomProductSave = async (productData: CreateCustomProductData) => {
     try {
-      // Si estamos editando un catálogo existente, crear directamente el producto personalizado
-      if (isEditing && catalogIdRef.current && catalogIdRef.current > 0) {
-        // Asegurarnos de que el ID del catálogo sea el correcto
-        const productDataToSave = {
-          ...customProductData,
-          catalog_id: catalogIdRef.current,
-          is_custom: true // Asegurar que se marque como producto personalizado
-        };
+      setLoading(true);
+      
+      const normalizedProductData = {
+        ...productData,
+        price: normalizePrice(productData.price),
+        image: getValidProductImage(productData.image) || "",
+        images: normalizeImageUrls(productData.images || [])
+      };
+      
+      // Log para depuración
+      logger.info('CatalogModal', 'Guardando producto personalizado:', normalizedProductData);
+      
+      let customProduct: CustomProduct;
+      
+      // Verificar si es un producto existente (con id) o uno nuevo
+      if ((productData as any).id) {
+        // Actualizar producto existente
+        customProduct = await catalogService.updateCustomProduct((productData as any).id, normalizedProductData);
         
-        // Crear el producto personalizado
-        const newProduct = await catalogService.createCustomProduct(productDataToSave);
-        
-        // Verificar si el producto se creó correctamente
-        if (newProduct && newProduct.id) {
-          // Agregar el producto personalizado a la lista de productos seleccionados
-          setSelectedProducts(prev => [...prev, {
-            ...newProduct,
-            name: newProduct.catalog_name || newProduct.name || 'Producto personalizado',
-            price: newProduct.catalog_price?.toString() || '0',
-            is_custom: true
-          }]);
-          setSelectedProductIds(prev => [...prev, newProduct.id]);
-          
-          // Cerrar el modal de producto personalizado
-          setIsCustomProductModalOpen(false);
-        } else {
-          throw new Error('No se pudo crear el producto personalizado');
-        }
+        // Actualizar estado local
+        setSelectedProducts(prev => {
+          return prev.map(p => {
+            if (p.id === customProduct.id) {
+              // Convertir CustomProduct a un formato compatible con Product
+              return {
+                ...p,
+                name: customProduct.name,
+                price: customProduct.price.toString(),
+                description: customProduct.description || '',
+                short_description: customProduct.short_description || '',
+                sku: customProduct.sku || '',
+                // Mantener propiedades adicionales para el catálogo
+                catalog_price: customProduct.price.toString(),
+                product_price: customProduct.price.toString(),
+                catalog_name: customProduct.name,
+                catalog_description: customProduct.description,
+                catalog_short_description: customProduct.short_description,
+                catalog_sku: customProduct.sku,
+                catalog_image: customProduct.image,
+                catalog_images: customProduct.images,
+                is_custom: true
+              } as any;
+            }
+            return p;
+          });
+        });
       } else {
-        // Si estamos creando un nuevo catálogo, simplemente añadir el producto a la lista temporal
-        // Crear un objeto simple para mostrar en la interfaz
-        const displayProduct = {
-          id: Date.now(), // Usar timestamp como ID único pero solo para manejo interno
-          name: customProductData.name,
-          price: customProductData.price.toString(),
-          images: customProductData.images ? customProductData.images.map(img => ({ src: img })) : [],
-          catalog_price: customProductData.price,
-          catalog_name: customProductData.name,
-          catalog_description: customProductData.description,
-          catalog_short_description: customProductData.short_description,
-          catalog_sku: customProductData.sku,
-          catalog_image: customProductData.image,
-          catalog_images: customProductData.images,
-          is_custom: true,
-          _unsavedCustomProduct: customProductData // Guardar datos originales para enviar al backend
+        // Crear nuevo producto
+        if (!catalogIdRef.current || catalogIdRef.current <= 0) {
+          throw new Error('ID del catálogo inválido');
+        }
+        
+        // Agregar ID del catálogo
+        normalizedProductData.catalog_id = catalogIdRef.current || 0;
+        
+        // Crear el producto
+        customProduct = await catalogService.createCustomProduct(normalizedProductData);
+        
+        // Agregar al estado local
+        // Convertir CustomProduct a un formato compatible con Product
+        const compatibleProduct = {
+          id: customProduct.id || -1, // ID negativo para productos personalizados
+          name: customProduct.name,
+          price: customProduct.price.toString(),
+          description: customProduct.description || '',
+          short_description: customProduct.short_description || '',
+          sku: customProduct.sku || '',
+          // Propiedades adicionales para el catálogo
+          catalog_price: customProduct.price.toString(),
+          product_price: customProduct.price.toString(),
+          catalog_name: customProduct.name,
+          catalog_description: customProduct.description,
+          catalog_short_description: customProduct.short_description,
+          catalog_sku: customProduct.sku,
+          catalog_image: customProduct.image,
+          catalog_images: customProduct.images,
+          is_custom: true
         } as any;
         
-        // Agregar el producto a la lista seleccionada
-        setSelectedProducts(prev => [...prev, displayProduct]);
-        setSelectedProductIds(prev => [...prev, displayProduct.id]);
-        
-        // Cerrar el modal de producto personalizado
-        setIsCustomProductModalOpen(false);
+        setSelectedProducts(prev => [...prev, compatibleProduct]);
+        setSelectedProductIds(prev => [...prev, customProduct.id || -1]);
       }
+      
+      // Cerrar modal
+      setIsCustomProductModalOpen(false);
+      setCurrentEditingProduct(null);
+      
+      logger.info('CatalogModal', 'Producto personalizado guardado con éxito:', customProduct);
+      alertService.success(`Producto personalizado ${(productData as any).id ? 'actualizado' : 'creado'} con éxito`);
     } catch (error) {
-      console.error('Error al crear producto personalizado:', error);
-      alertService.error('Error al crear producto personalizado');
+      logger.error('CatalogModal', 'Error al guardar producto personalizado:', error);
+      alertService.error(`Error al ${(productData as any).id ? 'actualizar' : 'crear'} el producto personalizado`);
+    } finally {
+      setLoading(false);
     }
-  }, [isEditing, catalogIdRef]);
+  };
 
-  // Filtrar productos que ya están seleccionados
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => !selectedProductIds.includes(product.id));
-  }, [products, selectedProductIds]);
+  const handleCloseCustomProductModal = () => {
+    setIsCustomProductModalOpen(false);
+    setCurrentEditingProduct(null);
+  };
+
+  // Encabezado del catálogo con componentes reutilizables
+  const renderCatalogHeader = () => {
+    return (
+      <div className="space-y-4 mb-6">
+        <h2 className="text-xl font-semibold">
+          {isEditing ? 'Editar Catálogo' : 'Crear Nuevo Catálogo'}
+        </h2>
+        
+        <FormInput
+          id="catalog-name"
+          label="Nombre del Catálogo"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Ingrese nombre del catálogo"
+        />
+        
+        <FormImageInput
+          label="Logo del Catálogo (opcional)"
+          imageUrl={logoUrl}
+          onChange={setLogoUrl}
+          placeholder="URL de la imagen del logo"
+        />
+      </div>
+    );
+  };
 
   return (
-    <div>
-      <h2 className="text-lg font-medium text-gray-900 mb-4">{isEditing ? 'Editar catálogo' : 'Crear catálogo'}</h2>
+    <div className="bg-white p-6 rounded-lg shadow-lg max-w-4xl mx-auto">
+      {renderCatalogHeader()}
+
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <label htmlFor="catalog-name" className="block text-sm font-medium text-gray-700 mb-2">
-            Nombre del catálogo
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              id="catalog-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="block w-full p-4 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-primario focus:border-primario"
-              placeholder="Ingresa un nombre para el catálogo"
-              required
-            />
-          </div>
-        </div>
+        {/* Lista de productos seleccionados */}
+        <SelectedProductsList
+          selectedProducts={selectedProducts}
+          selectedProductIds={selectedProducts.map(p => p.id)}
+          onToggleProduct={toggleProductSelection}
+          getProductImage={getProductMainImage}
+          formatCurrency={formatCurrency}
+        />
 
-        <div>
-          <label htmlFor="catalog-logo" className="block text-sm font-medium text-gray-700 mb-2">
-            Logo del catálogo
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              id="catalog-logo"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
-              className="block w-full p-4 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-primario focus:border-primario"
-              placeholder="Ingresa la URL del logo del catálogo"
-            />
-          </div>
-        </div>
+        {/* Selector de productos */}
+        <ProductSelector
+          searchTerm={searchTerm}
+          onSearchChange={handleSearchChange}
+          products={products}
+          loading={loading}
+          selectedProductIds={selectedProducts.map(p => p.id)}
+          onToggleProduct={toggleProductSelection}
+          getProductImage={getProductMainImage}
+          formatCurrency={formatCurrency}
+        />
+        <button 
+          type="button"
+          onClick={handleAddCustomProduct}
+          className="mt-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Añadir Producto Personalizado
+        </button>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Seleccionar productos
-          </label>
-
-          {/* Buscador de productos */}
-          <div className="relative mb-4">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20">
-                <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"/>
-              </svg>
-            </div>
-            <input
-              type="search"
-              className="block w-full p-4 pl-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-primario focus:border-primario"
-              placeholder="Buscar productos..."
-              value={searchTerm}
-              onChange={handleSearchChange}
-            />
-          </div>
-
-          {/* Contador de seleccionados */}
-          <div className="mb-2 text-sm text-gray-500">
-            {selectedProductIds.length} productos seleccionados
-          </div>
-
-          {/* Lista de productos seleccionados */}
-          {selectedProducts.length > 0 && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Productos seleccionados:</h4>
-              <div className="max-h-60 overflow-y-auto">
-                {selectedProducts.map(product => (
-                  <div key={`selected-${product.id}`} className="flex justify-between items-center mb-3 pb-2 border-b border-gray-200">
-                    <div className="flex items-center flex-1 mr-4">
-                      <img 
-                        src={getProductImage(product) || undefined} 
-                        alt={product.name} 
-                        className="w-10 h-10 mr-2 object-cover rounded" 
-                      />
-                      <div>
-                        <span className="block font-medium text-sm">{product.name}</span>
-                        <span className="block text-xs text-gray-500">Precio original: {formatCurrency((product as any).product_price || product.price)}</span>
-                        <span className="block text-xs text-gray-500">Precio del catálogo: {formatCurrency((product as any).catalog_price)}</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center">
-                      <div className="flex items-center">
-                        <button
-                          type="button"
-                          className="text-red-500 hover:text-red-700 p-1"
-                          title="Eliminar producto"
-                          onClick={() => toggleProductSelection(product)}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Lista de productos para seleccionar */}
-          <div className="mt-1 border border-gray-300 rounded-md overflow-hidden">
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <LoadingSpinner />
-              </div>
-            ) : (
-              <div className="max-h-64 overflow-y-auto">
-                {filteredProducts.length > 0 ? (
-                  filteredProducts.map(product => (
-                    <div
-                      key={product.id}
-                      className="flex items-center p-3 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => toggleProductSelection(product)}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedProductIds.includes(product.id)}
-                        onChange={() => {}} // Manejado por el onClick del div padre
-                        className="h-4 w-4 text-primario focus:ring-primario border-gray-300 rounded"
-                      />
-                      <div className="ml-3 flex items-center flex-1 mr-4">
-                        <img src={getProductImage(product) || undefined} alt={product.name} className="w-10 h-10 object-cover rounded" />
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                          <p className="text-sm text-gray-500">Precio regular: {formatCurrency(product.price)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : searchTerm.trim().length >= 2 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No se encontraron productos con ese término.</p>
-                  </div>
-                ) : products.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">Cargando productos...</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">Todos los productos ya están seleccionados.</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex justify-end space-x-3">
-          {isEditing && (
-            <button
-              type="button"
-              onClick={handleAddCustomProduct}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primario"
-            >
-              Crear producto personalizado
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primario"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit(new Event('submit') as any)}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primario hover:bg-primario-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primario"
-          >
-            {isEditing ? 'Guardar cambios' : 'Crear catálogo'}
-          </button>
-        </div>
+        {/* Botones de acción */}
+        <FormActions
+          onCancel={onCancel}
+          isSubmitting={loading}
+          submitLabel={isEditing ? 'Actualizar Catálogo' : 'Crear Catálogo'}
+          cancelLabel="Cancelar"
+          loadingLabel="Guardando..."
+        />
       </form>
+
+      {/* Modal de producto personalizado */}
       {isCustomProductModalOpen && (
-        <CustomProductModal 
+        <CustomProductModal
           isOpen={isCustomProductModalOpen}
-          onClose={() => setIsCustomProductModalOpen(false)}
-          onSave={handleCreateCustomProduct}
+          initialProduct={currentEditingProduct ? { ...currentEditingProduct } as unknown as CustomProduct : undefined}
+          onSave={handleCustomProductSave}
+          onClose={handleCloseCustomProductModal}
           catalogId={catalogIdRef.current}
-          key={`custom-product-modal-${Date.now()}`}
+          isEditing={!!currentEditingProduct}
         />
       )}
     </div>
   );
 };
 
-export default React.memo(CatalogModal);
+export default CatalogModal;
