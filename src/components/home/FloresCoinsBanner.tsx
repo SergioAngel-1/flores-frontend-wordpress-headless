@@ -1,14 +1,15 @@
-import React, { useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useRef, useState } from 'react';
 import floresCoinsImage from '../../assets/images/Flores-coins.png';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import ReferralInfoModal from '../modals/ReferralInfoModal';
 
 // Registrar el plugin useGSAP
 gsap.registerPlugin(useGSAP);
 
 const FloresCoinsBannerNew: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isModalOpen, setModalOpen] = useState(false);
 
   // Usar useGSAP para manejar la animación de rotación
   useGSAP(() => {
@@ -36,15 +37,20 @@ const FloresCoinsBannerNew: React.FC = () => {
           <div>
             <h3 className="text-lg font-bold mb-1">Flores Coins</h3>
             <p className="text-sm mb-2">Acumula puntos en cada compra y canjéalos por descuentos exclusivos.</p>
-            <Link 
-              to="/flores-coins" 
+            <button 
+              onClick={() => setModalOpen(true)}
               className="inline-block px-3 py-1 bg-white text-primario rounded-md text-xs font-medium hover:bg-opacity-90 transition-all duration-300 shadow-sm hover:shadow-md"
             >
               Conoce más
-            </Link>
+            </button>
           </div>
         </div>
       </div>
+      {/* Modal informativo sobre Flores Coins y Referidos */}
+      <ReferralInfoModal 
+        isOpen={isModalOpen} 
+        onClose={() => setModalOpen(false)} 
+      />
     </div>
   );
 };
