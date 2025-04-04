@@ -68,14 +68,31 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
         
         console.log('Cargando hiperofertas...');
         
-        const response = await api.get<Hiperoferta[]>('/floresinc/v1/hiperofertas', {
-          timeout: 10000
+        const response = await api.get('/floresinc/v1/hiperofertas', {
+          timeout: 10000,
+          params: {
+            ignore_dates: true, // Ignorar validaciones de fecha mientras probamos
+            debug: true // Recibir información de depuración
+          }
         });
         
-        console.log('Hiperofertas cargadas:', response.data);
+        let ofertas: Hiperoferta[] = [];
+        
+        // Verificar si la respuesta está en formato debug o normal
+        if (response.data && Array.isArray(response.data)) {
+          ofertas = response.data;
+          console.log('Hiperofertas cargadas:', ofertas, 'length:', ofertas.length);
+        } else if (response.data && response.data.hiperofertas) {
+          ofertas = response.data.hiperofertas;
+          console.log('Hiperofertas cargadas (modo debug):', ofertas, 'length:', ofertas.length);
+          console.log('Información de depuración:', response.data.debug);
+        } else {
+          console.log('Formato de respuesta inesperado:', response.data);
+          ofertas = [];
+        }
         
         // Asegurarse de que las URLs son relativas y no absolutas
-        const processedData = response.data.map(oferta => {
+        const processedData = ofertas.map(oferta => {
           // Si la URL es absoluta, mantener solo la ruta relativa
           if (oferta.product.permalink && oferta.product.permalink.includes('://')) {
             try {
@@ -190,7 +207,8 @@ const HiperofertasModal = ({ isOpen, onClose }: HiperofertasModalProps) => {
     <AnimatedModal 
       isOpen={isOpen} 
       onClose={onClose} 
-      className="max-w-7xl w-full"
+      maxWidth="max-w-7xl" 
+      className="w-full"
       title={
         <div className="flex items-center text-primario">
           <IoMdFlash className="text-2xl mr-2 text-yellow-500" />
