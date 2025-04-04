@@ -38,13 +38,23 @@ const ProductSection: React.FC<ProductSectionsProps> = ({ sectionId, className =
         setLoading(true);
         console.log(`Obteniendo sección ${sectionId}...`);
         
-        const response = await api.get(`/floresinc/v1/home-sections/${sectionId}`, {
-          timeout: 10000 // 10 segundos de timeout
+        // Agregar timestamp para evitar caché del navegador durante desarrollo
+        const timestamp = process.env.NODE_ENV === 'development' ? `?_=${Date.now()}` : '';
+        
+        const response = await api.get(`/floresinc/v1/home-sections/${sectionId}${timestamp}`, {
+          timeout: 15000 // 15 segundos de timeout
         });
         
         console.log(`Datos de la sección ${sectionId}:`, response.data);
-        setSection(response.data);
-        setError(null);
+        
+        // Verificar que la respuesta tenga la estructura esperada
+        if (response.data && response.data.products && Array.isArray(response.data.products)) {
+          setSection(response.data);
+          setError(null);
+        } else {
+          console.error(`Estructura de datos inválida para la sección ${sectionId}:`, response.data);
+          setError(`Estructura de datos inválida para esta sección.`);
+        }
       } catch (err) {
         console.error(`Error fetching section ${sectionId}:`, err);
         setError(`No se pudieron cargar los productos para esta sección.`);
@@ -69,11 +79,28 @@ const ProductSection: React.FC<ProductSectionsProps> = ({ sectionId, className =
     );
   }
 
-  if (error || !section) {
-    return null; // No mostrar nada si hay error o no hay datos
+  if (error) {
+    console.error(`Error en sección ${sectionId}:`, error);
+    // En producción, no mostramos nada cuando hay error
+    if (process.env.NODE_ENV !== 'development') {
+      return null;
+    }
+    // En desarrollo, mostramos un mensaje de error para facilitar la depuración
+    return (
+      <div className="py-4 px-6 bg-red-50 border border-red-200 rounded-md my-4">
+        <h3 className="text-red-700 font-semibold">Error en sección {sectionId}</h3>
+        <p className="text-red-600">{error}</p>
+      </div>
+    );
+  }
+  
+  if (!section) {
+    console.warn(`No hay datos para la sección ${sectionId}`);
+    return null;
   }
 
   if (!section.products || section.products.length === 0) {
+    console.warn(`No hay productos para la sección ${sectionId}`);
     return null; // No mostrar la sección si no hay productos
   }
 
@@ -125,35 +152,55 @@ const ProductSection: React.FC<ProductSectionsProps> = ({ sectionId, className =
 
 // Hook personalizado para obtener todas las secciones
 const useHomeSections = () => {
+  // Cambiamos el tipo a un objeto indexado para mantener compatibilidad con el resto del código
   const [sections, setSections] = useState<{[key: string]: Section}>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const dataFetchedRef = useRef(false);
 
   useEffect(() => {
-    const fetchAllSections = async () => {
+    const fetchSections = async () => {
       // Evitar múltiples cargas durante el renderizado
       if (dataFetchedRef.current) return;
       dataFetchedRef.current = true;
-      
+
       try {
         setLoading(true);
-        console.log('Obteniendo todas las secciones de productos...');
+        console.log('Obteniendo todas las secciones...');
         
-        const response = await api.get('/floresinc/v1/home-sections', {
-          timeout: 10000 // 10 segundos de timeout
+        // Agregar timestamp para evitar caché del navegador durante desarrollo
+        const timestamp = process.env.NODE_ENV === 'development' ? `?_=${Date.now()}` : '';
+        
+        const response = await api.get(`/floresinc/v1/home-sections${timestamp}`, {
+          timeout: 15000 // 15 segundos de timeout
         });
         
         console.log('Datos de todas las secciones:', response.data);
         
-        // Convertir el array a un objeto con las claves de sección
-        const sectionsObj: {[key: string]: Section} = {};
-        response.data.forEach((section: Section) => {
-          sectionsObj[section.id] = section;
-        });
-        
-        setSections(sectionsObj);
-        setError(null);
+        // Verificar que la respuesta tenga la estructura esperada
+        if (response.data && Array.isArray(response.data)) {
+          // Convertir el array a un objeto con las claves de sección
+          const sectionsObj: {[key: string]: Section} = {};
+          response.data.forEach((section: Section) => {
+            sectionsObj[section.id] = section;
+          });
+          
+          setSections(sectionsObj);
+          setError(null);
+          
+          // Registrar la cantidad de secciones encontradas
+          console.log(`Se encontraron ${response.data.length} secciones configuradas`);
+          
+          // Verificar que cada sección tenga los campos necesarios
+          response.data.forEach((section: any, index: number) => {
+            if (!section.id || !section.category_id) {
+              console.warn(`La sección #${index} tiene datos incompletos:`, section);
+            }
+          });
+        } else {
+          console.error('Estructura de datos inválida para las secciones:', response.data);
+          setError('Estructura de datos inválida para las secciones.');
+        }
       } catch (err) {
         console.error('Error fetching home sections:', err);
         setError('No se pudieron cargar las secciones de productos.');
@@ -162,14 +209,14 @@ const useHomeSections = () => {
       }
     };
 
-    fetchAllSections();
+    fetchSections();
     
     // Limpiar el ref cuando el componente se desmonte
     return () => {
       dataFetchedRef.current = false;
     };
   }, []);
-  
+
   return { sections, loading, error };
 };
 

@@ -72,7 +72,13 @@ const ReferidosPage = () => {
         console.log('Datos de estadísticas de referidos en componente:', referralStatsResponse.data);
         
         // Obtener código de referido
-        const referralCodeResponse = await pointsService.getReferralCode();
+        let referralCodeResponse;
+        try {
+          referralCodeResponse = await pointsService.getReferralCode();
+          console.log('Respuesta del código de referido:', referralCodeResponse);
+        } catch (codeError) {
+          console.error('Error específico al obtener código de referido:', codeError);
+        }
         
         // Actualizar estados
         setPoints(pointsResponse.data);
@@ -81,7 +87,7 @@ const ReferidosPage = () => {
         setReferralStats(referralStatsResponse.data);
         
         // Modificar la URL para usar el dominio del frontend en lugar del backend
-        if (referralCodeResponse.data) {
+        if (referralCodeResponse && referralCodeResponse.data) {
           const frontendUrl = window.location.origin; // Obtiene el dominio actual del frontend
           const code = referralCodeResponse.data.code;
           
@@ -92,8 +98,14 @@ const ReferidosPage = () => {
             code: code,
             url: referralUrl
           });
+          console.log('Código de referido cargado correctamente:', code);
         } else {
-          setReferralInfo(referralCodeResponse.data);
+          console.warn('No se recibieron datos válidos del código de referido');
+          // Establecer un código provisional para desarrollo/depuración
+          setReferralInfo({
+            code: "CARGANDO...",
+            url: window.location.origin + "?ref=CARGANDO"
+          });
         }
         
         setError('');
