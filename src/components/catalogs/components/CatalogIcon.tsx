@@ -1,6 +1,29 @@
 import React from 'react';
 
-const CatalogIcon: React.FC = () => {
+interface CatalogIconProps {
+  logoUrl?: string;
+}
+
+const CatalogIcon: React.FC<CatalogIconProps> = ({ logoUrl }) => {
+  // Si hay logo, mostrarlo, sino mostrar el icono por defecto
+  if (logoUrl) {
+    return (
+      <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full overflow-hidden">
+        <img 
+          src={logoUrl} 
+          alt="Logo del catálogo" 
+          className="h-full w-full object-cover"
+          onError={(e) => {
+            // Si hay error al cargar la imagen, mostrar el icono por defecto
+            e.currentTarget.style.display = 'none';
+            e.currentTarget.parentElement?.classList.add('bg-primario/10');
+          }}
+        />
+      </div>
+    );
+  }
+  
+  // Icono por defecto si no hay logo
   return (
     <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center bg-primario/10 rounded-full">
       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primario" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Product } from '../../types/woocommerce';
-import { CatalogProductInput, CreateCustomProductData, CustomProduct } from '../../types/catalog';
+import { Catalog, CatalogProductInput, CreateCustomProductData, CustomProduct } from '../../types/catalog';
 import productService from '../../services/productService';
 import catalogService from '../../services/catalogService';
 import alertService from '../../services/alertService';
@@ -31,7 +32,7 @@ interface CatalogModalProps {
   initialCatalogId?: number;
   initialLogoUrl?: string;
   isEditing?: boolean;
-  onSave: (name: string, productsData: CatalogProductInput[], logoUrl?: string) => void;
+  onSave: (name: string, productsData: CatalogProductInput[], logoUrl?: string) => Promise<Catalog>;
   onCancel: () => void;
 }
 
@@ -45,6 +46,7 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
   onSave,
   onCancel
 }) => {
+  const navigate = useNavigate();
   const [name, setName] = useState(initialName);
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [searchTerm, setSearchTerm] = useState('');
@@ -199,23 +201,46 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
     
     loadInitialProducts();
   }, [initialProductIds, loadSelectedProducts]);
+  
+
 
   const searchProducts = useCallback(async (term: string) => {
-    if (!term.trim()) {
-      setProducts([]);
-      return;
-    }
-
     try {
       setLoading(true);
-      const response = await productService.search(term);
-      const result = response.data;
       
-      const filteredResults = result.filter(product => 
-        !selectedProductIds.includes(product.id)
-      );
+      // Obtener IDs de productos a filtrar (incluyendo productos en catálogo y productos personalizados)
+      // Solo filtramos productos reales de WooCommerce (ID positivo)
+      const idsToExclude = selectedProductIds.filter(id => id > 0);
       
-      setProducts(filteredResults);
+      if (!term.trim()) {
+        // Cargar productos por defecto (recientes o destacados)
+        const response = await productService.getAll({
+          per_page: 50,  // Aumentar para tener más resultados iniciales
+          orderby: 'date',
+          order: 'desc'
+        });
+        const result = response.data;
+        
+        // Filtrar productos ya seleccionados
+        const filteredResults = result.filter(product => 
+          !idsToExclude.includes(product.id)
+        );
+        
+        console.log(`Productos cargados: ${result.length}, Después de filtrar: ${filteredResults.length}`);
+        setProducts(filteredResults);
+      } else {
+        // Buscar productos que coincidan con el término
+        const response = await productService.search(term);
+        const result = response.data;
+        
+        // Filtrar productos ya seleccionados
+        const filteredResults = result.filter(product => 
+          !idsToExclude.includes(product.id)
+        );
+        
+        console.log(`Término de búsqueda "${term}": ${result.length} resultados, Después de filtrar: ${filteredResults.length}`);
+        setProducts(filteredResults);
+      }
     } catch (error) {
       console.error('Error al buscar productos:', error);
       alertService.error('Error al buscar productos');
@@ -223,6 +248,18 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
       setLoading(false);
     }
   }, [selectedProductIds]);
+
+  // Cargar productos por defecto al montar el componente
+  useEffect(() => {
+    // Cargar productos iniciales una vez que el componente esté montado
+    const loadInitialProducts = async () => {
+      if (products.length === 0 && !loading && searchTerm.trim() === '') {
+        await searchProducts('');
+      }
+    };
+    
+    loadInitialProducts();
+  }, [products.length, loading, searchTerm, searchProducts]);
 
   const handleSearchChange = (value: string) => {
     setSearchTerm(value);
@@ -285,6 +322,13 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
     try {
       setLoading(true);
       
+      // Verificar si hay cambios en el nombre del catálogo
+      const nameChanged = name.trim() !== initialName.trim();
+      
+      // Verificar si hay cambios en el logo
+      const logoChanged = logoUrl !== initialLogoUrl;
+      
+      // Mapear productos a su formato de datos
       const productsData = selectedProducts.map(product => {
         const existingData = initialProductsData?.find(
           p => p.product_id === product.id || p.id === product.id
@@ -317,17 +361,70 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
         return productData;
       });
       
-      await onSave(name, productsData, getValidProductImage(logoUrl) || undefined);
+      // Verificar cambios en los productos
+      let productsChanged = false;
       
-      onCancel();
-      alertService.success(`Catálogo ${isEditing ? 'actualizado' : 'creado'} con éxito`);
+      // Verificar si la cantidad de productos ha cambiado
+      if (initialProductIds.length !== selectedProductIds.length) {
+        productsChanged = true;
+      } else {
+        // Comparar IDs de productos para ver si han cambiado
+        const initialIdsSet = new Set(initialProductIds);
+        productsChanged = selectedProductIds.some(id => !initialIdsSet.has(id));
+        
+        // Si los IDs coinciden, verificar si hay cambios en las propiedades de los productos
+        if (!productsChanged && isEditing && initialProductsData) {
+          // Creamos un mapa de los productos iniciales para búsqueda rápida
+          const initialProductsMap = new Map(initialProductsData.map(p => [
+            p.id || p.product_id, 
+            p
+          ]));
+          
+          // Verificar si hay cambios en algún producto
+          productsChanged = productsData.some(product => {
+            const initialProduct = initialProductsMap.get(product.id || product.product_id);
+            if (!initialProduct) return true;
+            
+            // Comparación de propiedades relevantes
+            // Convertimos los precios a string para comparación estable
+            return (
+              String(product.catalog_price) !== String(initialProduct.catalog_price) ||
+              product.catalog_name !== initialProduct.catalog_name ||
+              product.catalog_sku !== initialProduct.catalog_sku ||
+              product.catalog_description !== initialProduct.catalog_description ||
+              product.catalog_short_description !== initialProduct.catalog_short_description ||
+              product.catalog_image !== initialProduct.catalog_image
+            );
+          });
+        }
+      }
+      
+      // Si no hay cambios y estamos editando, mostrar un mensaje y cancelar
+      if (isEditing && !nameChanged && !logoChanged && !productsChanged) {
+        alertService.info('No se detectaron cambios en el catálogo.');
+        onCancel();
+        setLoading(false);
+        return;
+      }
+      
+      // Si hay cambios o es un nuevo catálogo, guardar
+      const savedCatalog = await onSave(name, productsData, getValidProductImage(logoUrl) || undefined);
+      
+      // Si no estamos editando y recibimos un ID de catálogo, redirigir a la página de detalle
+      if (!isEditing && savedCatalog && savedCatalog.id) {
+        alertService.success(`Catálogo creado con éxito. Redirigiendo...`);
+        navigate(`/catalog/${savedCatalog.id}`);
+      } else {
+        onCancel();
+        alertService.success(`Catálogo ${isEditing ? 'actualizado' : 'creado'} con éxito`);
+      }
     } catch (error) {
       console.error('Error al guardar el catálogo:', error);
       alertService.error('Error al guardar el catálogo. Por favor, intente nuevamente.');
     } finally {
       setLoading(false);
     }
-  }, [name, selectedProductIds, selectedProducts, onSave, isEditing, initialProductsData, logoUrl, onCancel]);
+  }, [name, selectedProductIds, selectedProducts, onSave, isEditing, initialProductsData, logoUrl, onCancel, initialName, initialLogoUrl, initialProductIds]);
 
   const handleAddCustomProduct = useCallback(() => {
     setIsCustomProductModalOpen(true);
@@ -383,15 +480,30 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
         });
       } else {
         // Crear nuevo producto
-        if (!catalogIdRef.current || catalogIdRef.current <= 0) {
-          throw new Error('ID del catálogo inválido');
+        if (catalogIdRef.current && catalogIdRef.current > 0) {
+          // Si ya existe el catálogo, agregar el ID
+          normalizedProductData.catalog_id = catalogIdRef.current;
+          
+          // Crear el producto en la base de datos
+          customProduct = await catalogService.createCustomProduct(normalizedProductData);
+        } else {
+          // Si el catálogo no existe, crear un producto temporal con ID negativo
+          // que será guardado cuando se guarde el catálogo
+          const tempId = -Math.floor(Math.random() * 100000) - 1; // ID temporal negativo para identificar nuevos productos personalizados
+          
+          // Crear objeto de producto personalizado sin llamar a la API
+          customProduct = {
+            id: tempId,
+            name: normalizedProductData.name,
+            price: normalizedProductData.price,
+            description: normalizedProductData.description || '',
+            short_description: normalizedProductData.short_description || '',
+            sku: normalizedProductData.sku || '',
+            image: normalizedProductData.image || '',
+            images: normalizedProductData.images || [],
+            is_custom: true
+          };
         }
-        
-        // Agregar ID del catálogo
-        normalizedProductData.catalog_id = catalogIdRef.current || 0;
-        
-        // Crear el producto
-        customProduct = await catalogService.createCustomProduct(normalizedProductData);
         
         // Agregar al estado local
         // Convertir CustomProduct a un formato compatible con Product
@@ -418,12 +530,14 @@ const CatalogModal: React.FC<CatalogModalProps> = ({
         setSelectedProductIds(prev => [...prev, customProduct.id || -1]);
       }
       
-      // Cerrar modal
+      // Mostrar alerta de éxito y cerrar modal
+      alertService.success(
+        (productData as any).id ? 'Producto personalizado actualizado correctamente' : 'Producto personalizado creado correctamente'
+      );
       setIsCustomProductModalOpen(false);
       setCurrentEditingProduct(null);
       
       logger.info('CatalogModal', 'Producto personalizado guardado con éxito:', customProduct);
-      alertService.success(`Producto personalizado ${(productData as any).id ? 'actualizado' : 'creado'} con éxito`);
     } catch (error) {
       logger.error('CatalogModal', 'Error al guardar producto personalizado:', error);
       alertService.error(`Error al ${(productData as any).id ? 'actualizar' : 'crear'} el producto personalizado`);

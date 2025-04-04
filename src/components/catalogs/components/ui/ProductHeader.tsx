@@ -8,47 +8,33 @@ interface ProductHeaderProps {
 }
 
 const ProductHeader: React.FC<ProductHeaderProps> = ({ product, viewType, isCustomProduct }) => {
-  // Para vista de grid o mobile en lista
-  if (viewType === 'grid' || (viewType === 'list' && window.innerWidth < 768)) {
-    return (
-      <div className={`p-3 bg-secundario/20 border-b border-secundario ${viewType === 'list' ? 'md:hidden' : ''}`}>
-        <h3 className={`${viewType === 'grid' ? 'text-xl text-center' : 'text-lg'} font-semibold text-primario line-clamp-2`}>
-          {product.name}
-          {isCustomProduct && (
-            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario/10 text-primario">
-              Exclusivo de catálogo
-            </span>
-          )}
-        </h3>
-        
-        {(product.catalog_sku || product.sku) && viewType === 'grid' && (
-          <p className="text-xs text-texto/70 mt-1">
-            SKU: {product.catalog_sku || product.sku}
-          </p>
+  // Aplicar clases específicas según vista
+  const containerClasses = viewType === 'grid'
+    ? 'p-3 bg-secundario/20 border-b border-secundario'
+    : 'p-3 bg-secundario/20 border-b border-secundario md:p-3 md:pl-12';
+  
+  const titleClasses = viewType === 'grid'
+    ? 'text-xl text-center font-semibold text-primario line-clamp-2'
+    : 'text-lg md:text-xl font-semibold text-primario line-clamp-2';
+  
+  return (
+    <div className={containerClasses}>
+      <h3 className={titleClasses}>
+        {product.name}
+        {isCustomProduct && (
+          <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario/10 text-primario">
+            Exclusivo de catálogo
+          </span>
         )}
-      </div>
-    );
-  } else {
-    // Vista de lista en desktop
-    return (
-      <div className="hidden md:block p-3 pl-12 bg-secundario/20 border-b border-secundario">
-        <h3 className="text-xl font-semibold text-primario line-clamp-2">
-          {product.name}
-          {isCustomProduct && (
-            <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primario/10 text-primario">
-              Exclusivo de catálogo
-            </span>
-          )}
-        </h3>
-        
-        {(product.catalog_sku || product.sku) && (
-          <p className="text-xs text-primario mt-1">
-            SKU: {product.catalog_sku || product.sku}
-          </p>
-        )}
-      </div>
-    );
-  }
+      </h3>
+      
+      {(product.catalog_sku || product.sku) && (
+        <p className="text-xs text-texto/70 md:text-primario mt-1">
+          SKU: {product.catalog_sku || product.sku}
+        </p>
+      )}
+    </div>
+  );
 };
 
 export default ProductHeader;

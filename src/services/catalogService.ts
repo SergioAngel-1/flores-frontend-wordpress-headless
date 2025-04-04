@@ -198,6 +198,7 @@ const catalogService = {
     console.log('Datos a enviar al endpoint de actualización de catálogo:', catalogData);
     console.log('Productos personalizados a crear:', customUnsavedProducts);
     
+    // Usar el método PUT para actualizar catálogos según el endpoint definido en backend
     return api.put(`/floresinc/v1/catalogs/${catalogId}`, catalogData)
       .then(async response => {
         // Si hay productos personalizados sin guardar, crearlos ahora

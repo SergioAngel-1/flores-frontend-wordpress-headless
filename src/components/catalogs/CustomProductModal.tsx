@@ -158,7 +158,7 @@ const CustomProductModal: React.FC<CustomProductModalProps> = ({
         setSecondaryImage2('');
       }
       
-      alertService.success(isEditing ? 'Producto personalizado actualizado correctamente' : 'Producto personalizado creado correctamente');
+      // La alerta se manejará en el componente padre para evitar duplicación
       onClose();
     } catch (error) {
       console.error('Error al guardar el producto personalizado:', error);

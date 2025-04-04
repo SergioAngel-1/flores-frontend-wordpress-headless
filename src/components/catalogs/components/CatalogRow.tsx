@@ -31,14 +31,14 @@ const CatalogRow: React.FC<CatalogRowProps> = ({
       className="catalog-item hover:bg-gray-50 cursor-pointer transition-colors"
       onClick={() => onCatalogClick(catalog.id, catalog.name)}
     >
+      <td className="px-6 py-4 whitespace-nowrap text-center">
+        <div className="flex justify-center">
+          <CatalogIcon logoUrl={catalog.logo_url} />
+        </div>
+      </td>
       <td className="px-6 py-4 whitespace-nowrap">
-        <div className="flex items-center">
-          <CatalogIcon />
-          <div className="ml-4">
-            <div className="text-sm font-medium text-gray-900">
-              {catalog.name}
-            </div>
-          </div>
+        <div className="text-sm font-medium text-gray-900">
+          {catalog.name}
         </div>
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
