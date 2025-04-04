@@ -43,6 +43,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
   const [autoplay, setAutoplay] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const userInteractionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const bannerElements = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -264,6 +265,21 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     setAutoplay(false);
   }, []);
 
+  // Reanudar carrusel automático después de la interacción del usuario
+  const restartCarouselAfterDelay = useCallback(() => {
+    // Limpiar cualquier timeout existente
+    if (userInteractionTimeoutRef.current) {
+      clearTimeout(userInteractionTimeoutRef.current);
+      userInteractionTimeoutRef.current = null;
+    }
+
+    // Configurar un nuevo timeout para reanudar el autoplay después de 5 segundos de inactividad
+    userInteractionTimeoutRef.current = setTimeout(() => {
+      logger.debug('BannerCarousel', "Reanudando autoplay después de interacción del usuario");
+      startCarousel();
+    }, 5000); // 5 segundos de inactividad antes de reanudar
+  }, []);
+
   // Efecto para iniciar/detener el carrusel automático cuando cambian los banners
   useEffect(() => {
     logger.debug('BannerCarousel', `Inicializando carrusel con ${banners.length} banners`);
@@ -272,6 +288,12 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
+    }
+    
+    // Limpiar cualquier timeout de interacción existente
+    if (userInteractionTimeoutRef.current) {
+      clearTimeout(userInteractionTimeoutRef.current);
+      userInteractionTimeoutRef.current = null;
     }
 
     // Solo iniciar si hay más de un banner o si el único banner tiene múltiples imágenes
@@ -307,6 +329,10 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      if (userInteractionTimeoutRef.current) {
+        clearTimeout(userInteractionTimeoutRef.current);
+        userInteractionTimeoutRef.current = null;
+      }
     };
   }, [banners.length, startCarousel]);
 
@@ -320,9 +346,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     e.stopPropagation();
     stopCarousel();
     prevBanner();
-    setTimeout(() => {
-      startCarousel();
-    }, 2000);
+    restartCarouselAfterDelay();
   };
 
   const handleNextClick = (e: React.MouseEvent) => {
@@ -331,9 +355,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     e.stopPropagation();
     stopCarousel();
     nextBanner();
-    setTimeout(() => {
-      startCarousel();
-    }, 2000);
+    restartCarouselAfterDelay();
   };
 
   const handleIndicatorClick = (e: React.MouseEvent, index: number) => {
@@ -342,9 +364,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     e.stopPropagation();
     stopCarousel();
     goToBanner(index);
-    setTimeout(() => {
-      startCarousel();
-    }, 2000);
+    restartCarouselAfterDelay();
   };
 
   const handleCarouselIndicatorClick = (e: React.MouseEvent, index: number) => {
@@ -353,9 +373,7 @@ const BannerCarousel: React.FC<BannerCarouselProps> = ({
     e.stopPropagation();
     stopCarousel();
     goToCarouselImage(index);
-    setTimeout(() => {
-      startCarousel();
-    }, 2000);
+    restartCarouselAfterDelay();
   };
 
   // Verificar si hay banners disponibles
